@@ -1,0 +1,302 @@
+---
+title: Coordinate Conversion Scripts
+description: Tools for converting between pixel, meter, and geographic coordinate systems
+---
+
+# Coordinate Conversion Scripts
+
+These utilities convert coordinates between pixel space, projected meters, and geographic (longitude/latitude) coordinate systems using GDAL's transformation capabilities.
+
+## pixel2longlat.py
+
+Converts pixel coordinates to longitude/latitude coordinates.
+
+### Usage
+
+```bash
+python pixel2longlat.py sample line infile
+```
+
+### Parameters
+
+<ParamField path="sample" type="float" required>
+  Pixel sample (column) coordinate
+</ParamField>
+
+<ParamField path="line" type="float" required>
+  Pixel line (row) coordinate
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Input georeferenced image file
+</ParamField>
+
+### Return Values
+
+Outputs to stdout:
+- Pixel coordinates (sample, line)
+- Longitude and latitude in decimal degrees
+- Longitude and latitude in DMS (Degrees, Minutes, Seconds) format
+
+### How It Works
+
+1. Reads the geotransformation matrix from the input file
+2. Calculates ground coordinates for the pixel center
+3. Transforms projected coordinates to geographic (lat/long)
+4. Reports results in both decimal and DMS formats
+
+### Example
+
+```bash
+python pixel2longlat.py 1000 500 input_image.tif
+```
+
+**Output:**
+```
+pixel: 1000         line: 500
+longitude: -122.456789    latitude: 37.789012
+longitude: 122d27'24.44"W    latitude: 37d47'20.44"N
+```
+
+### Notes
+
+- Coordinates are calculated for the **center** of the pixel
+- Input file must have valid geotransform and projection information
+- Works with any GDAL-supported georeferenced format
+
+---
+
+## pixel2meters.py
+
+Converts pixel coordinates to X,Y coordinates in the image's projected coordinate system (typically meters or feet).
+
+### Usage
+
+```bash
+python pixel2meters.py sample line infile
+```
+
+### Parameters
+
+<ParamField path="sample" type="float" required>
+  Pixel sample (column) coordinate
+</ParamField>
+
+<ParamField path="line" type="float" required>
+  Pixel line (row) coordinate
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Input georeferenced image file
+</ParamField>
+
+### Return Values
+
+Outputs to stdout:
+- Pixel coordinates (sample, line)
+- X and Y coordinates in projected units (typically meters)
+
+### Example
+
+```bash
+python pixel2meters.py 1000 500 input_projected.tif
+```
+
+**Output:**
+```
+pixel: 1000         line: 500
+X: 523456.789000    Y: 4567890.123000
+```
+
+### Notes
+
+- Returns coordinates in the file's native projection units
+- Does not perform coordinate transformation
+- Coordinates are for pixel center
+
+---
+
+## longlat2meters.py
+
+Converts longitude/latitude coordinates to X,Y projected coordinates based on an input image's projection.
+
+### Usage
+
+```bash
+python longlat2meters.py long lat infile
+```
+
+### Parameters
+
+<ParamField path="long" type="float" required>
+  Longitude in decimal degrees
+</ParamField>
+
+<ParamField path="lat" type="float" required>
+  Latitude in decimal degrees
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Input georeferenced image defining the projection
+</ParamField>
+
+### Return Values
+
+Outputs to stdout:
+- Input longitude and latitude
+- Transformed X and Y coordinates in projected units
+
+### How It Works
+
+1. Reads projection information from input file
+2. Creates coordinate transformation from geographic to projected
+3. Transforms the input lon/lat to X/Y meters
+
+### Example
+
+```bash
+python longlat2meters.py -122.4567 37.7890 input_projected.tif
+```
+
+**Output:**
+```
+longitude: -122.456700    latitude: 37.789000
+X: 523456.789000    Y: 4567890.123000
+```
+
+### Use Cases
+
+- Converting GPS coordinates to map projection
+- Preparing coordinates for GIS analysis
+- Validating coordinate transformations
+
+---
+
+## meters2longlat.py
+
+Converts X,Y projected coordinates to longitude/latitude based on an input image's projection.
+
+### Usage
+
+```bash
+python meters2longlat.py X Y infile
+```
+
+### Parameters
+
+<ParamField path="X" type="float" required>
+  X coordinate in projected units (meters or feet)
+</ParamField>
+
+<ParamField path="Y" type="float" required>
+  Y coordinate in projected units (meters or feet)
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Input georeferenced image defining the projection
+</ParamField>
+
+### Return Values
+
+Outputs to stdout:
+- Input X and Y coordinates
+- Transformed longitude and latitude in decimal degrees
+- Longitude and latitude in DMS format
+
+### Example
+
+```bash
+python meters2longlat.py 523456.789 4567890.123 input_projected.tif
+```
+
+**Output:**
+```
+X: 523456.789000        Y: 4567890.123000
+longitude: -122.456700        latitude: 37.789000
+longitude: 122d27'24.12"W    latitude: 37d47'20.40"N
+```
+
+### Notes
+
+- Performs inverse transformation from projected to geographic
+- Useful for converting map coordinates to GPS-compatible format
+- Output includes both decimal and DMS formats for convenience
+
+---
+
+## Common Workflow
+
+These scripts work together for various coordinate conversion workflows:
+
+### Workflow 1: Pixel to Geographic
+
+```bash
+# Direct conversion
+python pixel2longlat.py 1000 500 image.tif
+
+# Or two-step conversion
+python pixel2meters.py 1000 500 image.tif
+# Take X,Y from output
+python meters2longlat.py 523456.789 4567890.123 image.tif
+```
+
+### Workflow 2: Geographic to Pixel
+
+```bash
+# Convert geographic to projected first
+python longlat2meters.py -122.4567 37.7890 image.tif
+# Then use X,Y to find pixel coordinates (requires additional calculation)
+```
+
+## Technical Details
+
+### Coordinate Systems
+
+All scripts use GDAL/OSR for coordinate transformations:
+- Support for any projection defined in the input file
+- Automatic handling of datum transformations
+- Precise transformation using PROJ library
+
+### Pixel Convention
+
+All scripts use **pixel center** convention:
+- Adds half pixel offset to ensure center point
+- Consistent with most GIS software conventions
+
+## Requirements
+
+<Warning>
+**Dependencies:**
+- Python 2.7+ or Python 3.x
+- GDAL Python bindings (osgeo.gdal, osgeo.osr)
+- Input files must have valid geotransform and projection metadata
+</Warning>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Error: Unable to load PROJ.4 library">
+    Ensure GDAL is properly installed with PROJ support:
+    ```bash
+    gdalinfo --version
+    ```
+  </Accordion>
+  
+  <Accordion title="Incorrect transformations">
+    Verify the input file has correct projection information:
+    ```bash
+    gdalinfo input_file.tif
+    ```
+  </Accordion>
+  
+  <Accordion title="Script returns Usage message">
+    Check that all required parameters are provided in the correct order:
+    - All three arguments must be present
+    - Numeric values must be valid
+    - File must exist and be readable
+  </Accordion>
+</AccordionGroup>
+
+## Author
+
+Based on original work by Andrey Kiselev (tolatlong.py), with modifications by Trent Hare (USGS Astrogeology Science Center).

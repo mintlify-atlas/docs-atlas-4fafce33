@@ -1,80 +1,371 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start Guide
+description: Get started with practical examples using GDAL Scripts
 ---
 
-## Get started in three steps
+## Overview
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide walks you through three practical examples demonstrating common tasks with GDAL Scripts. Each example uses real scripts from the repository with actual command signatures.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  These examples assume you have completed the [installation](/installation) steps and have test planetary imagery available. You can download sample data from [USGS Astrogeology Data](https://astrogeology.usgs.gov/search).
 </Note>
+
+## Example 1: Coordinate Conversion
+
+One of the most common tasks in planetary data processing is converting between different coordinate systems. The `gdal2Coordinates` directory provides four utilities for this purpose.
+
+### Converting Pixel Coordinates to Latitude/Longitude
+
+The `pixel2longlat.py` script reads the coordinate system and geotransformation matrix from an image and reports latitude/longitude coordinates for a specified pixel.
+
+<Steps>
+  <Step title="Understand the Script">
+    **Script location:** `gdal2Coordinates/pixel2longlat.py`
+    
+    **Purpose:** Given pixel (sample) and line coordinates, report the latitude/longitude coordinates for the center of that pixel.
+    
+    **Usage:**
+    ```bash
+    python pixel2longlat.py sample line infile
+    ```
+    
+    **Parameters:**
+    - `sample`: Pixel column number (x-coordinate)
+    - `line`: Pixel row number (y-coordinate)
+    - `infile`: Input geospatial image file
+  </Step>
+  
+  <Step title="Run the Example">
+    Find the coordinates of pixel (100, 200) in a lunar image:
+    
+    ```bash
+    cd gdal2Coordinates
+    python pixel2longlat.py 100 200 lunar_mosaic.tif
+    ```
+    
+    **Expected Output:**
+    ```
+    pixel: 100              line: 200
+    longitude: -15.234567   latitude: 23.456789
+    longitude: 15d14'4.44"W latitude: 23d27'24.44"N
+    ```
+    
+    The script outputs coordinates in both decimal degrees and DMS (degrees, minutes, seconds) format.
+  </Step>
+  
+  <Step title="Try Related Conversions">
+    The `gdal2Coordinates` directory includes complementary scripts:
+    
+    <CodeGroup>
+    ```bash Lon/Lat to Meters
+    python longlat2meters.py -15.234567 23.456789 lunar_mosaic.tif
+    ```
+    
+    ```bash Meters to Lon/Lat
+    python meters2longlat.py 123456 789012 lunar_mosaic.tif
+    ```
+    
+    ```bash Pixel to Meters
+    python pixel2meters.py 100 200 lunar_mosaic.tif
+    ```
+    </CodeGroup>
+    
+    These scripts work together to convert between any coordinate system based on the image's projection.
+  </Step>
+</Steps>
+
+### Understanding the Output
+
+The coordinate conversion accounts for:
+- The image's geotransformation matrix (position, rotation, scale)
+- The coordinate reference system (CRS) defined in the image
+- Pixel center vs. pixel corner conventions
+
+<Note>
+  The script automatically shifts to the center of the pixel by adding half the pixel size to the calculated coordinates.
+</Note>
+
+## Example 2: Terrain Analysis with Slope Calculation
+
+The `gdal_baseline_slope.py` script calculates specialized slopes using various baseline lengths, a method developed specifically for planetary terrain analysis.
+
+<Steps>
+  <Step title="Understand Baseline Slopes">
+    **Script location:** `gdal_baseline_slope/gdal_baseline_slope.py`
+    
+    **Purpose:** Calculate slopes using variable baseline lengths measured in pixels. Different baselines reveal terrain characteristics at different scales.
+    
+    **Key Concepts:**
+    - **Baseline = 1, 2, or 5**: Uses corner pixels of a moving window
+    - **No baseline specified**: Uses Horn's Method (3×3 window, equivalent to `gdaldem slope`)
+    
+    **Usage:**
+    ```bash
+    python gdal_baseline_slope.py [-baseline VALUE] [-ot Byte] [-crop] infile outfile.tif
+    ```
+  </Step>
+  
+  <Step title="Calculate Standard Slope (Horn's Method)">
+    Without specifying a baseline, the script uses Horn's Method:
+    
+    ```bash
+    cd gdal_baseline_slope
+    python gdal_baseline_slope.py mars_dem.tif mars_slope.tif
+    ```
+    
+    **Output:**
+    ```
+    Warning: Using Horn's method for slope calculation, send -baseline VALUE to set specialized calculation.
+    band: 1 complete.
+    ```
+    
+    This produces a 32-bit floating-point slope raster in degrees.
+  </Step>
+  
+  <Step title="Calculate Baseline Slope">
+    For specialized terrain analysis with a 5-pixel baseline:
+    
+    ```bash
+    python gdal_baseline_slope.py -baseline 5 mars_dem.tif mars_slope_5baseline.tif
+    ```
+    
+    The baseline parameter changes which pixels are used in the calculation:
+    - Baseline 2: Uses 3×3 window corners
+    - Baseline 5: Uses 6×6 window corners
+    
+    Larger baselines smooth out small-scale roughness and highlight regional slopes.
+  </Step>
+  
+  <Step title="Generate 8-bit Output">
+    For visualization or to reduce file size, create 8-bit output:
+    
+    ```bash
+    python gdal_baseline_slope.py -baseline 5 -ot Byte mars_dem.tif mars_slope_8bit.tif
+    ```
+    
+    This scales slope values (0-50+ degrees) to 1-255 using:
+    ```
+    DN = (Slope * 5) + 0.2
+    ```
+    
+    The script generates both 32-bit and 8-bit versions:
+    - `32bit_mars_slope_8bit.tif` (full precision)
+    - `mars_slope_8bit.tif` (scaled to byte)
+  </Step>
+  
+  <Step title="Optional: Crop Edge Pixels">
+    The `-crop` flag removes edge pixels affected by the baseline window:
+    
+    ```bash
+    python gdal_baseline_slope.py -baseline 5 -crop mars_dem.tif mars_slope_cropped.tif
+    ```
+    
+    This trims 1-5 pixels from edges depending on baseline value, ensuring all output pixels have complete neighborhoods.
+  </Step>
+</Steps>
+
+### Performance Considerations
+
+<Warning>
+  The current implementation loads the full image into memory and can be slow for large datasets. Plan accordingly:
+  - Use `-ot Byte` to reduce memory usage for output
+  - Work with tiled or regional subsets for very large DEMs
+  - Expect processing time to scale with image size
+</Warning>
+
+### Dependencies
+
+This script requires:
+- **NumPy**: Array operations
+- **SciPy**: Generic filtering functions
+
+```bash
+conda install numpy scipy
+```
+
+## Example 3: Clipping Data to Valid Ranges
+
+The `gdal_clip2range.py` script is essential for cleaning planetary data by setting out-of-range values to NoData.
+
+<Steps>
+  <Step title="Understand the Use Case">
+    **Script location:** `gdal_clip2range/gdal_clip2range.py`
+    
+    **Purpose:** Clip pixel values to a defined valid range. Values outside this range are set to NoData.
+    
+    **Common applications:**
+    - Removing erroneous values from I/F (reflectance) data
+    - Eliminating elevation outliers from DEMs
+    - Cleaning up processed imagery
+    
+    **Usage:**
+    ```bash
+    python gdal_clip2range.py infile outfile.tif min_valid max_valid [output_noData]
+    ```
+  </Step>
+  
+  <Step title="Clip with Existing NoData Value">
+    Most planetary images have a NoData value defined. Preserve it:
+    
+    ```bash
+    cd gdal_clip2range
+    python gdal_clip2range.py lunar_dem.tif lunar_dem_clipped.tif -100.5 500.2
+    ```
+    
+    **What this does:**
+    - Sets pixels < -100.5 meters to NoData
+    - Sets pixels > 500.2 meters to NoData
+    - Maintains the original NoData value from the input file
+    - Preserves all pixels within the valid range
+    
+    **Output:**
+    ```
+    input file: lunar_dem.tif
+    min: -100.5
+    max: 500.2
+    NoData: -3.40282e+38
+    file created: lunar_dem_clipped.tif
+    ```
+  </Step>
+  
+  <Step title="Set Valid Range for Reflectance Data">
+    For I/F (reflectance) images that should only contain values between 0 and 1:
+    
+    ```bash
+    python gdal_clip2range.py mars_if.tif mars_if_clipped.tif 0 1 0
+    ```
+    
+    **Note the fifth parameter:** Here we explicitly set the output NoData value to 0 because:
+    - The input file may not have NoData defined
+    - For reflectance data, 0 is a reasonable NoData value
+    - All invalid pixels (< 0 or > 1) will be set to 0
+    
+    <Warning>
+      Only specify the optional `output_noData` parameter if the input file has no NoData value defined. Otherwise, omit it to preserve the original NoData value.
+    </Warning>
+  </Step>
+  
+  <Step title="Verify the Results">
+    Check that clipping worked as expected:
+    
+    ```bash
+    gdalinfo -stats mars_if_clipped.tif
+    ```
+    
+    Look for:
+    - Minimum and maximum values should fall within your specified range
+    - NoData value should be set correctly
+    - Statistics should reflect the clipped data
+  </Step>
+</Steps>
+
+### Technical Details
+
+The script:
+1. Opens the input file and creates a copy for output
+2. Reads each band as a NumPy array
+3. Applies the range mask: `data[(data < minValue) | (data > maxValue)] = noData`
+4. Writes the modified array back to the output file
+5. Clears existing statistics metadata (which would be invalid)
+
+<Note>
+  For more information and community discussion, see: [OpenPlanetary: Crop Image DN Range](https://openplanetary.discourse.group/t/crop-image-dn-range-gdal-clip2range-py/698)
+</Note>
+
+## Next Steps
+
+### Explore More Tools
+
+Now that you've tried these examples, explore other categories:
+
+<CardGroup cols={2}>
+  <Card title="Format Conversion" icon="arrows-rotate">
+    Convert to ISIS3, PDS4, or generate point clouds:
+    - `gdal2ISIS3/Astropedia_gdal2ISIS3.py`
+    - `PDS4gdal/isis3_to_pds4_LOLA_pvl.py`
+    - `gdal2PLY/gdal2PLY.py`
+  </Card>
+  
+  <Card title="Projection Tools" icon="globe">
+    Work with IAU coordinate reference systems:
+    - `OGC_IAU2000_WKT_v2/Source_Python/create_IAU2000_wkt_v3.py`
+    - `NewCenterLon_Equi/NewCenterLon_Equi.py`
+  </Card>
+  
+  <Card title="Metadata Operations" icon="tags">
+    Extract and manipulate image metadata:
+    - `gdal2metadata/gdal2metadata.py`
+    - `gdal_copylabel/gdal_copylabel.py`
+  </Card>
+  
+  <Card title="Spatial Data" icon="map">
+    Work with vectors and spatial features:
+    - `ogr_footprintinit2shp/footprintinit2shp.py`
+    - `ogr_isisminer2shp/isisminer2shp.py`
+  </Card>
+</CardGroup>
+
+### Batch Processing
+
+For processing multiple files, create shell scripts or Python wrappers:
+
+```bash Example Batch Script
+#!/bin/bash
+# Process all TIF files in a directory
+
+for dem in *.tif; do
+    echo "Processing $dem..."
+    python gdal_baseline_slope.py -baseline 5 -ot Byte "$dem" "slope_${dem}"
+done
+```
+
+### Getting Help
+
+Each script directory contains a README.md with detailed usage instructions:
+
+```bash
+cat gdal_baseline_slope/README.md
+cat gdal2Coordinates/README.md
+cat OGC_IAU2000_WKT_v2/README.md
+```
+
+Run any script without arguments to see its usage information:
+
+```bash
+python gdal_clip2range.py
+```
+
+## Common Workflows
+
+<AccordionGroup>
+  <Accordion title="Landing Site Analysis Workflow">
+    1. **Download DEM** of the region of interest
+    2. **Clip to valid range** using `gdal_clip2range.py`
+    3. **Calculate slopes** at multiple baselines:
+       ```bash
+       python gdal_baseline_slope.py -baseline 1 dem.tif slope1.tif
+       python gdal_baseline_slope.py -baseline 5 dem.tif slope5.tif
+       ```
+    4. **Extract coordinates** of potential sites using `pixel2longlat.py`
+    5. **Export to shapefile** for analysis in GIS software
+  </Accordion>
+  
+  <Accordion title="Image Mosaic Preparation">
+    1. **Match image extents** using `gdal_match_image_extents.py`
+    2. **Clip to valid ranges** for consistent data quality
+    3. **Convert projection** if needed using IAU WKT definitions
+    4. **Mosaic** using standard GDAL tools like `gdal_merge.py`
+  </Accordion>
+  
+  <Accordion title="Data Archive Conversion">
+    1. **Convert from ISIS3** cubes to GeoTIFF for web services
+    2. **Generate PDS4** labels using `PDS4gdal` scripts for archiving
+    3. **Create metadata** extracts using `gdal2metadata.py`
+    4. **Generate footprint shapefiles** for inventory database
+  </Accordion>
+</AccordionGroup>
+
+<Card title="Report Issues or Contribute" icon="github" href="https://github.com/thareUSGS/GDAL_scripts">
+  Found a bug or have a feature request? Visit the GitHub repository to open an issue or contribute improvements.
+</Card>

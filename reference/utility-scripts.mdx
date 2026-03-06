@@ -1,0 +1,528 @@
+---
+title: Utility Scripts
+description: General-purpose tools for metadata, histograms, and image analysis
+---
+
+# Utility Scripts
+
+General-purpose utilities for working with geospatial raster data, including metadata generation, statistical analysis, and size calculations.
+
+## gdal2metadata.py
+
+Generates FGDC (Federal Geographic Data Committee) metadata XML from GDAL-supported raster files.
+
+### Usage
+
+```bash
+python gdal2metadata.py [options] in_Geo.tif in_FGDCtemplate.xml output.xml
+```
+
+### Parameters
+
+<ParamField path="in_Geo.tif" type="string" required>
+  Input georeferenced raster file
+</ParamField>
+
+<ParamField path="in_FGDCtemplate.xml" type="string" required>
+  Input FGDC metadata template XML file
+</ParamField>
+
+<ParamField path="output.xml" type="string" required>
+  Output populated FGDC metadata XML file
+</ParamField>
+
+### Options
+
+<ParamField path="-debug" type="flag">
+  Print detailed image information during processing
+</ParamField>
+
+<ParamField path="-mm" type="flag">
+  Compute and report min/max values
+</ParamField>
+
+<ParamField path="-stats" type="flag">
+  Compute and report statistics
+</ParamField>
+
+<ParamField path="-hist" type="flag">
+  Report histograms
+</ParamField>
+
+### Metadata Fields Populated
+
+Automatically extracts and populates:
+
+#### Spatial Information
+- **Coordinate system** - Projection name and parameters
+- **Datum and spheroid** - Target body, radii, flattening
+- **Resolution** - Pixel size in degrees or meters
+- **Extent** - Bounding coordinates (westbc, eastbc, northbc, southbc)
+- **Image dimensions** - Rows and columns
+
+#### Projection Parameters
+
+Supports and extracts parameters for:
+- Equirectangular
+- Mercator
+- Transverse Mercator
+- Sinusoidal
+- Robinson
+- Stereographic
+- Polar Stereographic
+- Orthographic
+
+#### Technical Details
+- Data type and bit depth
+- NoData values
+- Scale and offset
+
+### Example
+
+```bash
+# Basic metadata generation
+python gdal2metadata.py input.tif fgdc-template.xml output_metadata.xml
+
+# With statistics and debugging
+python gdal2metadata.py -debug -stats input.tif fgdc-template.xml output_metadata.xml
+```
+
+### Template File
+
+Requires an FGDC XML template with placeholder elements. The script populates:
+
+```xml
+<horizsys>
+  <planar>
+    <mapproj>
+      <mapprojn>Equirectangular</mapprojn>
+      <equirect>
+        <stdparll>0</stdparll>
+        <longcm>0</longcm>
+      </equirect>
+    </mapproj>
+  </planar>
+</horizsys>
+```
+
+### Coordinate Normalization
+
+<Note>
+Longitudes are automatically normalized to -180 to 180 range for FGDC validation compliance.
+</Note>
+
+### Requirements
+
+<Warning>
+**Dependencies:**
+- Python 2.7+ or Python 3.x
+- GDAL Python bindings
+- lxml or xml.etree for XML processing
+</Warning>
+
+```bash
+# Install lxml (recommended)
+conda install -c conda-forge lxml
+```
+
+---
+
+## gdal_hist.py
+
+Exports raster histogram data in tab-delimited format for analysis and visualization.
+
+### Usage
+
+```bash
+python gdal_hist.py [options] datasetname
+```
+
+### Parameters
+
+<ParamField path="datasetname" type="string" required>
+  Input raster dataset
+</ParamField>
+
+### Options
+
+<ParamField path="-mm" type="flag">
+  Compute and display min/max values
+</ParamField>
+
+<ParamField path="-stats" type="flag">
+  Compute and display statistics (min, max, mean, stddev, RMS)
+</ParamField>
+
+<ParamField path="-hist" type="flag">
+  Export histogram data (required)
+</ParamField>
+
+<ParamField path="-unscale" type="flag">
+  Apply scale and offset to unscale values to original units
+</ParamField>
+
+<Note>
+At least one flag (`-mm`, `-stats`, or `-hist`) must be specified.
+</Note>
+
+### Output Format
+
+#### Statistics Output
+```
+Min=0.00, Max=50.00, Mean=15.23, StdDev=8.45, RMS=17.42
+```
+
+#### Histogram Output
+```
+level    value      count    cumulative
+0        0.00       1234     0.012340
+1        0.20       2345     0.035790
+2        0.40       3456     0.070350
+...
+```
+
+Columns:
+- **level** - Bin number
+- **value** - Center value of bin
+- **count** - Number of pixels in bin
+- **cumulative** - Cumulative percentage (0-1)
+
+### Example
+
+```bash
+# Export histogram only
+python gdal_hist.py -hist slope.tif > slope_histogram.txt
+
+# Statistics and histogram
+python gdal_hist.py -stats -hist dem.tif > dem_analysis.txt
+
+# Unscaled values
+python gdal_hist.py -unscale -stats -hist scaled_data.tif > unscaled_stats.txt
+```
+
+### Scale and Offset
+
+When `-unscale` is used:
+```python
+value = (raw_value × scale) + offset
+```
+
+Reads scale and offset from raster metadata.
+
+### Multi-band Files
+
+For multi-band files, each band is processed separately:
+```
+Band 1 Block=256x256 Type=Float32, ColorInterp=Gray
+Min=0.00, Max=50.00, Mean=15.23, StdDev=8.45, RMS=17.42
+level    value      count    cumulative
+...
+```
+
+---
+
+## slope_histogram_cumulative_graph.py
+
+Creates histogram and cumulative distribution visualizations from tabular histogram data.
+
+### Usage
+
+```bash
+python slope_histogram_cumulative_graph.py [options] input.tab output.png
+```
+
+### Parameters
+
+<ParamField path="input.tab" type="string" required>
+  Input tab-delimited histogram file (from gdal_hist.py)
+</ParamField>
+
+<ParamField path="output.png" type="string" required>
+  Output PNG image file
+</ParamField>
+
+### Options
+
+<ParamField path="-name" type="string">
+  Title for the plot
+  ```bash
+  -name "Mars Landing Site A"
+  ```
+</ParamField>
+
+### Input File Format
+
+Expects tab-delimited format from `gdal_hist.py`:
+```
+level    value    count    cumulative
+0        0.00     1234     0.012340
+1        0.20     2345     0.035790
+```
+
+### Output Visualization
+
+Generates a dual-axis plot:
+- **Left Y-axis** - Frequency histogram (gray filled area)
+- **Right Y-axis** - Cumulative distribution (blue line)
+- **X-axis** - Value (typically slope in degrees)
+- **Vertical line** - Reference line at x=15 (suitable for slopes)
+
+### Example
+
+```bash
+# Generate histogram from DEM slope
+python gdal_hist.py -hist slope.tif > slope_hist.txt
+
+# Create visualization
+python slope_histogram_cumulative_graph.py -name "Site Alpha" \
+  slope_hist.txt slope_histogram.png
+```
+
+### Customization
+
+The script can be modified to:
+- Change reference line position (default: x=15)
+- Adjust color scheme
+- Modify axis labels
+- Change figure size
+
+### Requirements
+
+<Warning>
+**Dependencies:**
+- Python 3.x
+- pandas
+- matplotlib
+</Warning>
+
+```bash
+conda install -c conda-forge pandas matplotlib
+```
+
+---
+
+## gdalSize.py
+
+Calculates uncompressed raster file size based on geographic extent and resolution.
+
+### Usage
+
+```bash
+python gdalSize.py minlong minlat maxlong maxlat resolution bitType bands infile
+```
+
+### Parameters
+
+<ParamField path="minlong" type="float" required>
+  Minimum longitude (degrees)
+</ParamField>
+
+<ParamField path="minlat" type="float" required>
+  Minimum latitude (degrees)
+</ParamField>
+
+<ParamField path="maxlong" type="float" required>
+  Maximum longitude (degrees)
+</ParamField>
+
+<ParamField path="maxlat" type="float" required>
+  Maximum latitude (degrees)
+</ParamField>
+
+<ParamField path="resolution" type="float" required>
+  Resolution in meters per pixel
+</ParamField>
+
+<ParamField path="bitType" type="integer" required>
+  Bit depth: 8, 16, or 32
+</ParamField>
+
+<ParamField path="bands" type="integer" required>
+  Number of bands
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Reference image for projection information
+</ParamField>
+
+### Output
+
+Reports estimated file size:
+```
+1234.5 in Megabytes
+1.2 in Gigabytes
+```
+
+### How It Works
+
+1. Reads projection from reference image
+2. Transforms geographic bounds to projected coordinates
+3. Calculates dimensions based on resolution
+4. Computes uncompressed size: `lines × samples × bands × bytes_per_pixel`
+
+### Size Calculation
+
+| Bit Depth | Bytes per Pixel |
+|-----------|----------------|
+| 8         | 1              |
+| 16        | 2              |
+| 32        | 4              |
+
+```
+Size = (extent_x / resolution) × (extent_y / resolution) × bands × bytes_per_pixel
+```
+
+### Example
+
+```bash
+# Calculate size for Mars region
+# Bounds: -180 to 180 lon, -90 to 90 lat
+# Resolution: 100 m/pixel
+# 16-bit, 1 band
+python gdalSize.py -180 -90 180 90 100 16 1 mars_reference.tif
+```
+
+**Output:**
+```
+49152000.0 in Megabytes
+46.9 in Gigabytes
+```
+
+### Use Cases
+
+- **Storage planning** - Estimate disk space before processing
+- **Data ordering** - Calculate download sizes
+- **Processing planning** - Determine memory requirements
+- **Cost estimation** - Calculate cloud storage costs
+
+### Limitations
+
+- Calculates **uncompressed** size only
+- Actual compressed size varies by format and compression
+- Does not account for tile/block overhead
+
+<Tip>
+For compressed size estimates:
+- GeoTIFF with LZW: ~30-50% of uncompressed
+- JPEG2000: ~10-20% of uncompressed
+- Cloud-optimized formats: add ~5-10% for overviews
+</Tip>
+
+---
+
+## Common Workflows
+
+### Complete Slope Analysis Workflow
+
+```bash
+# 1. Calculate slope
+python gdal_baseline_slope.py -baseline 5 input_dem.tif slope.tif
+
+# 2. Generate statistics
+python gdal_hist.py -stats -hist slope.tif > slope_data.txt
+
+# 3. Create visualization
+python slope_histogram_cumulative_graph.py -name "Site Analysis" \
+  slope_data.txt slope_plot.png
+```
+
+### Metadata Documentation Workflow
+
+```bash
+# 1. Generate metadata
+python gdal2metadata.py input.tif fgdc_template.xml metadata.xml
+
+# 2. Validate FGDC metadata
+mp -e metadata.xml  # If USGS MP tool is available
+
+# 3. Create HTML view
+xsltproc fgdc-html.xsl metadata.xml > metadata.html
+```
+
+### Data Planning Workflow
+
+```bash
+# 1. Calculate storage needs
+python gdalSize.py -180 -85 180 85 100 16 3 reference.tif
+
+# 2. Estimate processing time
+# Use size estimate to calculate processing duration
+
+# 3. Plan tile scheme
+# Based on size, determine optimal tile size
+```
+
+## Installation
+
+### Basic Installation
+
+```bash
+# Install GDAL and core dependencies
+conda install -c conda-forge gdal numpy
+```
+
+### Full Installation (All Utilities)
+
+```bash
+# Install all dependencies
+conda install -c conda-forge gdal numpy scipy pandas matplotlib lxml
+```
+
+### Verify Installation
+
+```bash
+# Test GDAL
+python -c "from osgeo import gdal; print(gdal.__version__)"
+
+# Test other libraries
+python -c "import numpy, pandas, matplotlib; print('OK')"
+```
+
+## Requirements Summary
+
+| Script | Python | GDAL | NumPy | Pandas | Matplotlib | lxml |
+|--------|--------|------|-------|--------|------------|------|
+| gdal2metadata.py | 2.7+ | ✓ | - | - | - | ✓ |
+| gdal_hist.py | 2.7+ | ✓ | - | - | - | - |
+| slope_histogram_cumulative_graph.py | 3.x | - | - | ✓ | ✓ | - |
+| gdalSize.py | 2.7+ | ✓ | - | - | - | - |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="ImportError: No module named 'osgeo'">
+    Install GDAL Python bindings:
+    ```bash
+    conda install -c conda-forge gdal
+    ```
+  </Accordion>
+  
+  <Accordion title="Metadata validation errors">
+    Ensure:
+    - Input file has valid projection
+    - Template XML is valid FGDC format
+    - Longitude values are in -180 to 180 range
+  </Accordion>
+  
+  <Accordion title="Histogram visualization fails">
+    Check:
+    - Input file is tab-delimited
+    - Contains required columns: level, value, count, cumulative
+    - matplotlib backend is properly configured
+  </Accordion>
+  
+  <Accordion title="Size calculation seems incorrect">
+    Verify:
+    - Reference image has correct projection
+    - Bounds are in correct order (min before max)
+    - Resolution units match projection units
+  </Accordion>
+</AccordionGroup>
+
+## Author
+
+Developed by Trent Hare and contributors at USGS Astrogeology Science Center.
+
+## License
+
+Public domain (Unlicense) unless otherwise specified.

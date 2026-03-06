@@ -1,0 +1,250 @@
+---
+title: Coordinate Conversion Scripts
+description: Convert between pixel, geographic, and projected coordinate systems using GDAL
+icon: map-pin
+---
+
+The `gdal2Coordinates` collection provides utilities for converting between different coordinate systems based on the geospatial information embedded in raster files.
+
+## Overview
+
+These scripts read the coordinate system and geotransformation matrix from a GDAL-supported raster file to perform coordinate transformations. All conversions use the projection information from the input image.
+
+## Available Scripts
+
+### pixel2longlat.py
+
+Converts pixel coordinates to latitude/longitude (geographic) coordinates.
+
+<ParamField path="sample" type="float" required>
+  The pixel/sample position (column number)
+</ParamField>
+
+<ParamField path="line" type="float" required>
+  The line position (row number)
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Path to the input raster file
+</ParamField>
+
+**Usage:**
+
+```bash
+python pixel2longlat.py sample line infile
+```
+
+**Example:**
+
+```bash
+python pixel2longlat.py 100 200 terrain.tif
+```
+
+**Output:**
+
+```
+pixel: 100          line: 200
+longitude: -112.456789      latitude: 35.123456
+longitude: 112d27'24.44"W   latitude: 35d7'24.44"N
+```
+
+<Info>
+The script calculates coordinates for the **center** of the specified pixel by applying a half-pixel shift.
+</Info>
+
+### pixel2meters.py
+
+Converts pixel coordinates to projected coordinates in meters (or feet, depending on the projection).
+
+<ParamField path="sample" type="float" required>
+  The pixel/sample position (column number)
+</ParamField>
+
+<ParamField path="line" type="float" required>
+  The line position (row number)
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Path to the input raster file
+</ParamField>
+
+**Usage:**
+
+```bash
+python pixel2meters.py sample line infile
+```
+
+**Example:**
+
+```bash
+python pixel2meters.py 500 750 projected_dem.tif
+```
+
+**Output:**
+
+```
+pixel: 500          line: 750
+X: 445678.500000    Y: 3789234.500000
+```
+
+### longlat2meters.py
+
+Converts longitude/latitude coordinates to projected coordinates (X, Y) in meters or feet.
+
+<ParamField path="longitude" type="float" required>
+  Longitude in decimal degrees
+</ParamField>
+
+<ParamField path="latitude" type="float" required>
+  Latitude in decimal degrees
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Path to the input raster file (provides projection information)
+</ParamField>
+
+**Usage:**
+
+```bash
+python longlat2meters.py longitude latitude infile
+```
+
+**Example:**
+
+```bash
+python longlat2meters.py -112.5 35.2 projected_map.tif
+```
+
+**Output:**
+
+```
+longitude: -112.500000      latitude: 35.200000
+X: 450000.000000            Y: 3900000.000000
+```
+
+### meters2longlat.py
+
+Converts projected coordinates (X, Y) in meters or feet to longitude/latitude.
+
+<ParamField path="X" type="float" required>
+  X coordinate in meters (or feet)
+</ParamField>
+
+<ParamField path="Y" type="float" required>
+  Y coordinate in meters (or feet)
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Path to the input raster file (provides projection information)
+</ParamField>
+
+**Usage:**
+
+```bash
+python meters2longlat.py X Y infile
+```
+
+**Example:**
+
+```bash
+python meters2longlat.py 450000 3900000 projected_map.tif
+```
+
+**Output:**
+
+```
+X: 450000.000000            Y: 3900000.000000
+longitude: -112.500000      latitude: 35.200000
+longitude: 112d30'0.00"W    latitude: 35d12'0.00"N
+```
+
+## Implementation Details
+
+### Coordinate Transformation Process
+
+All scripts follow a similar workflow:
+
+<Steps>
+  <Step title="Open the input raster">
+    Use GDAL to open the raster file in read-only mode
+  </Step>
+  
+  <Step title="Read geotransformation matrix">
+    Extract the affine transformation coefficients that map between pixel and ground coordinates
+  </Step>
+  
+  <Step title="Create spatial reference objects">
+    Build OGR spatial reference objects from the raster's projection information
+  </Step>
+  
+  <Step title="Transform coordinates">
+    Apply the appropriate transformation using GDAL/OGR coordinate transformation functions
+  </Step>
+  
+  <Step title="Apply pixel center offset (where applicable)">
+    Shift coordinates to represent the center of pixels rather than corners
+  </Step>
+</Steps>
+
+### Geotransformation Matrix
+
+GDAL uses a 6-coefficient affine transformation:
+
+```python
+X = geomatrix[0] + geomatrix[1] * pixel + geomatrix[2] * line
+Y = geomatrix[3] + geomatrix[4] * pixel + geomatrix[5] * line
+```
+
+Where:
+- `geomatrix[0]`: Top-left X coordinate
+- `geomatrix[1]`: Pixel width (X resolution)
+- `geomatrix[2]`: Row rotation (typically 0)
+- `geomatrix[3]`: Top-left Y coordinate  
+- `geomatrix[4]`: Column rotation (typically 0)
+- `geomatrix[5]`: Pixel height (Y resolution, typically negative)
+
+## Requirements
+
+<CodeGroup>
+
+```bash Python 2/3
+pip install gdal
+```
+
+```bash Anaconda
+conda install gdal
+```
+
+</CodeGroup>
+
+The scripts support both old and new GDAL Python bindings:
+- Modern: `from osgeo import gdal, osr`
+- Legacy: `import gdal` (automatically detected)
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Interactive Mapping" icon="map">
+    Convert mouse clicks on images to geographic coordinates for display
+  </Card>
+  
+  <Card title="Data Integration" icon="layer-group">
+    Transform coordinates between datasets with different projections
+  </Card>
+  
+  <Card title="Ground Control" icon="bullseye">
+    Identify ground coordinates for surveyed pixel locations
+  </Card>
+  
+  <Card title="Quality Control" icon="check">
+    Verify georeferencing accuracy at known control points
+  </Card>
+</CardGroup>
+
+## Credits
+
+Based on `tolatlong.py` by Andrey Kiselev (dron@remotesensing.org). Extended for meter/feet conversions by Trent Hare (USGS).
+
+<Note>
+These scripts are part of the GDAL Python samples and are released under the MIT License.
+</Note>

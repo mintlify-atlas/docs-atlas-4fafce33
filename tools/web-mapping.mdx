@@ -1,0 +1,577 @@
+---
+title: 'Web Mapping Tools'
+description: 'Examples for accessing USGS Astrogeology WMS services with GDAL, OpenLayers, and Leaflet'
+---
+
+## Overview
+
+The USGS Astrogeology Science Center provides Web Map Service (WMS) endpoints for planetary data. This guide demonstrates how to access these services using GDAL configuration files and web mapping libraries.
+
+## GDAL WMS Configuration
+
+### Overview
+
+GDAL can retrieve images from WMS layers using XML configuration files, enabling command-line access to planetary base maps and elevation data.
+
+### Basic Usage
+
+```bash
+gdal_translate -of PNG gdal_MDIM21.xml mdim21_out.png
+```
+
+This command retrieves data from a WMS layer and exports it as a PNG image.
+
+## WMS Configuration Files
+
+### Mars MDIM 2.1 Mosaic
+
+Access the Mars Digital Image Mosaic (MDIM 2.1):
+
+```xml
+<GDAL_WMS>
+  <Service name="WMS">
+    <Version>1.1.1</Version>
+    <ServerUrl>http://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/mars/mars_simp_cyl.map</ServerUrl>
+    <SRS>EPSG:4326</SRS>
+    <ImageFormat>image/jpeg</ImageFormat>
+    <Layers>MDIM21</Layers>
+  </Service>
+  <DataWindow>
+    <UpperLeftX>280</UpperLeftX>
+    <UpperLeftY>45</UpperLeftY>
+    <LowerRightX>290</LowerRightX>
+    <LowerRightY>35</LowerRightY>
+    <SizeX>1000</SizeX>
+    <SizeY>1000</SizeY>
+  </DataWindow>
+  <Projection>EPSG:4326</Projection>
+  <BandsCount>3</BandsCount>
+  <DataType>Byte</DataType>
+</GDAL_WMS>
+```
+
+**Key Parameters:**
+- **ServerUrl**: WMS endpoint URL
+- **Layers**: Layer name (MDIM21)
+- **ImageFormat**: `image/jpeg` for RGB imagery
+- **BandsCount**: 3 (RGB)
+- **DataType**: Byte (8-bit)
+
+### Mars MOLA Elevation
+
+Access Mars Orbiter Laser Altimeter (MOLA) elevation data:
+
+```xml
+<GDAL_WMS>
+  <Service name="WMS">
+    <Version>1.1.1</Version>
+    <ServerUrl>http://wms.wr.usgs.gov/cgi-bin/mapserv?map=/maps/mars/mars_simp_cyl_elev.map</ServerUrl>
+    <SRS>EPSG:4326</SRS>
+    <ImageFormat>image/tiff</ImageFormat>
+    <Layers>MOLA_elev</Layers>
+  </Service>
+  <DataWindow>
+    <UpperLeftX>280</UpperLeftX>
+    <UpperLeftY>45</UpperLeftY>
+    <LowerRightX>290</LowerRightX>
+    <LowerRightY>35</LowerRightY>
+    <SizeX>1000</SizeX>
+    <SizeY>1000</SizeY>
+  </DataWindow>
+  <Projection>EPSG:4326</Projection>
+  <BandsCount>1</BandsCount>
+  <DataType>Int16</DataType>
+</GDAL_WMS>
+```
+
+**Key Parameters:**
+- **ImageFormat**: `image/tiff` for elevation data
+- **BandsCount**: 1 (elevation only)
+- **DataType**: Int16 (16-bit signed integer)
+
+### Moon LOLA Elevation
+
+Access Lunar Orbiter Laser Altimeter (LOLA) elevation data:
+
+```xml
+<GDAL_WMS>
+  <Service name="WMS">
+    <Version>1.1.1</Version>
+    <ServerUrl>http://wms.wr.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl_elev.map</ServerUrl>
+    <SRS>EPSG:4326</SRS>
+    <ImageFormat>image/tiff</ImageFormat>
+    <Layers>LOLA_elev</Layers>
+  </Service>
+  <DataWindow>
+    <UpperLeftX>175</UpperLeftX>
+    <UpperLeftY>45</UpperLeftY>
+    <LowerRightX>185</LowerRightX>
+    <LowerRightY>35</LowerRightY>
+    <SizeX>1000</SizeX>
+    <SizeY>1000</SizeY>
+  </DataWindow>
+  <Projection>EPSG:4326</Projection>
+  <BandsCount>1</BandsCount>
+  <DataType>Int16</DataType>
+</GDAL_WMS>
+```
+
+## GDAL WMS Usage Examples
+
+### Export Specific Region
+
+Create a configuration file with your desired extent:
+
+```xml
+<DataWindow>
+  <UpperLeftX>-180</UpperLeftX>   <!-- West longitude -->
+  <UpperLeftY>90</UpperLeftY>      <!-- North latitude -->
+  <LowerRightX>180</LowerRightX>   <!-- East longitude -->
+  <LowerRightY>-90</LowerRightY>   <!-- South latitude -->
+  <SizeX>3600</SizeX>              <!-- Output width in pixels -->
+  <SizeY>1800</SizeY>              <!-- Output height in pixels -->
+</DataWindow>
+```
+
+Then export:
+
+```bash
+gdal_translate -of GTiff mars_config.xml mars_region.tif
+```
+
+### Get Dataset Information
+
+```bash
+gdalinfo gdal_mars_MOLA_elev.xml
+```
+
+Output shows:
+- Coordinate system
+- Pixel size
+- Bounding box
+- Data type
+- Band information
+
+### Reproject WMS Data
+
+```bash
+gdalwarp -t_srs "+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=3396190 +units=m" \
+  gdal_mars_MOLA_elev.xml mars_sinusoidal.tif
+```
+
+### Create Hillshade from Elevation WMS
+
+```bash
+# Download elevation data
+gdal_translate -of GTiff gdal_mars_MOLA_elev.xml mars_elev.tif
+
+# Generate hillshade
+gdaldem hillshade mars_elev.tif mars_hillshade.tif -z 5 -az 315 -alt 45
+```
+
+## OpenLayers Example
+
+### Interactive Moon Map
+
+HTML template for displaying lunar WMS layers with OpenLayers:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="http://astrowebmaps.wr.usgs.gov/webmapatlas/styles/ol.css" />
+  <script src="http://astrowebmaps.wr.usgs.gov/webmapatlas/ol/OpenLayers-2.10/OpenLayers.js"></script>
+  <style>
+    #map { width: 100%; height: 100%; border: 1px solid black; }
+  </style>
+</head>
+<body>
+  <div id='map'></div>
+  <script type="text/javascript">
+    var map = new OpenLayers.Map('map', { 
+      maxExtent: new OpenLayers.Bounds(0, -90, 360, 90) 
+    });
+    
+    var wmsURL = [
+      "http://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl.map"
+    ];
+
+    // Add LOLA Color layer
+    var LOLA_color = new OpenLayers.Layer.WMS(
+      'LOLA Color',
+      wmsURL,
+      { layers: 'LOLA_color', format: 'image/jpeg' },
+      { wrapDateLine: true, buffer: 1, isBaseLayer: true, visibility: true }
+    );
+    map.addLayer(LOLA_color);
+
+    // Add LOLA Steel layer
+    var LOLA_steel = new OpenLayers.Layer.WMS(
+      'LOLA Steel',
+      wmsURL,
+      { layers: 'LOLA_steel', format: 'image/jpeg' },
+      { wrapDateLine: true, buffer: 1, isBaseLayer: true, visibility: false }
+    );
+    map.addLayer(LOLA_steel);
+
+    // Add LOLA Black & White layer
+    var LOLA_bw = new OpenLayers.Layer.WMS(
+      'LOLA B&W',
+      wmsURL,
+      { layers: 'LOLA_bw', format: 'image/jpeg' },
+      { wrapDateLine: true, buffer: 1, isBaseLayer: true, visibility: false }
+    );
+    map.addLayer(LOLA_bw);
+
+    // Set initial view
+    map.setCenter(new OpenLayers.LonLat(90, -35), 7);
+    
+    // Add controls
+    map.addControl(new OpenLayers.Control.MousePosition());
+    map.addControl(new OpenLayers.Control.PanZoomBar());
+    map.addControl(new OpenLayers.Control.LayerSwitcher({'ascending':true}));
+    map.addControl(new OpenLayers.Control.ScaleLine());
+    map.addControl(new OpenLayers.Control.Graticule());
+  </script>
+</body>
+</html>
+```
+
+### Available Lunar Layers
+
+<CardGroup cols={2}>
+  <Card title="LOLA_color" icon="palette">
+    Color-coded elevation visualization
+  </Card>
+  <Card title="LOLA_steel" icon="mountain">
+    Grayscale elevation (steel colormap)
+  </Card>
+  <Card title="LOLA_bw" icon="image">
+    Black and white shaded relief
+  </Card>
+  <Card title="LROC_WAC" icon="camera">
+    Wide Angle Camera mosaic
+  </Card>
+  <Card title="UVVIS" icon="sun">
+    Clementine UVVIS mosaic
+  </Card>
+  <Card title="KaguyaTC_Ortho" icon="satellite">
+    JAXA Kaguya Terrain Camera
+  </Card>
+  <Card title="LO" icon="circle">
+    Lunar Orbiter mosaic
+  </Card>
+</CardGroup>
+
+## Leaflet Example
+
+### Modern Lunar Web Map
+
+Lightweight alternative using Leaflet:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WMS Example - Leaflet</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"></script>
+  <style>
+    #map { width: 600px; height: 400px; }
+  </style>
+</head>
+<body>
+  <div id='map'></div>
+  <script type="text/javascript">
+    // Define WMS layers
+    var LROC_WAC = L.tileLayer.wms(
+      'https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl.map',
+      { layers: 'LROC_WAC' }
+    );
+    
+    var LOLA_color = L.tileLayer.wms(
+      'https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl.map',
+      { layers: 'LOLA_color' }
+    );
+
+    // Initialize map
+    var map = L.map('map', {
+      crs: L.CRS.EPSG4326,
+      center: [0, 0],
+      zoom: 1,
+      layers: [LROC_WAC, LOLA_color]
+    });
+
+    // Add layer control
+    var baseMaps = {
+      "LROC_WAC": LROC_WAC,
+      "LOLA_color": LOLA_color
+    };
+    
+    L.control.layers(baseMaps).addTo(map);
+  </script>
+</body>
+</html>
+```
+
+### Adding GeoJSON Overlay
+
+Include region of interest as GeoJSON:
+
+```javascript
+// Define GeoJSON polygon
+var pubextent = {
+  "type": "FeatureCollection",
+  "properties": {"title": "Example polygon"},
+  "features": [{
+    "type": "Feature",
+    "properties": {},
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [[50, 22.5], [50, 27.5], [60, 27.5], [60, 22.5], [50, 22.5]]
+      ]
+    }
+  }]
+};
+
+// Add to map
+L.geoJson(pubextent).addTo(map);
+```
+
+### Custom Styling for GeoJSON
+
+```javascript
+L.geoJson(pubextent, {
+  style: {
+    color: '#ff0000',
+    weight: 2,
+    opacity: 0.8,
+    fillColor: '#ff0000',
+    fillOpacity: 0.2
+  },
+  onEachFeature: function (feature, layer) {
+    if (feature.properties.title) {
+      layer.bindPopup(feature.properties.title);
+    }
+  }
+}).addTo(map);
+```
+
+## Available WMS Endpoints
+
+### USGS Astrogeology WMS Services
+
+<Tabs>
+  <Tab title="Moon">
+    **Base URL:** `http://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl.map`
+    
+    **Available Layers:**
+    - `LOLA_color` - LOLA elevation (color)
+    - `LOLA_steel` - LOLA elevation (steel)
+    - `LOLA_bw` - LOLA elevation (grayscale)
+    - `LROC_WAC` - LROC Wide Angle Camera
+    - `uv_v2` - Clementine UVVIS v2
+    - `KaguyaTC_Ortho` - Kaguya Terrain Camera
+    - `LO` - Lunar Orbiter
+    
+    **Elevation URL:** `http://wms.wr.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl_elev.map`
+    - `LOLA_elev` - LOLA elevation (Int16)
+  </Tab>
+  
+  <Tab title="Mars">
+    **Base URL:** `http://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/mars/mars_simp_cyl.map`
+    
+    **Available Layers:**
+    - `MDIM21` - Mars Digital Image Mosaic 2.1
+    - `THEMIS_IR_Day` - THEMIS Infrared Day
+    - `THEMIS_IR_Night` - THEMIS Infrared Night
+    - `Viking_MDIM21` - Viking MDIM 2.1
+    
+    **Elevation URL:** `http://wms.wr.usgs.gov/cgi-bin/mapserv?map=/maps/mars/mars_simp_cyl_elev.map`
+    - `MOLA_elev` - MOLA elevation (Int16)
+  </Tab>
+</Tabs>
+
+<Info>
+For a complete list of available layers, visit the [USGS Astro Web Map Atlas](http://astrowebmaps.wr.usgs.gov/webmapatlas/Layers/maps.html)
+</Info>
+
+## GetCapabilities Requests
+
+### Query Available Layers
+
+Get WMS capabilities to discover all available layers:
+
+```bash
+curl "http://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl.map&SERVICE=WMS&REQUEST=GetCapabilities"
+```
+
+This returns an XML document listing:
+- Available layers
+- Supported formats
+- Coordinate systems
+- Bounding boxes
+- Layer metadata
+
+### Parse Capabilities with Python
+
+```python
+from owslib.wms import WebMapService
+
+wms = WebMapService('http://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl.map')
+
+print(f"Title: {wms.identification.title}")
+print(f"Layers: {list(wms.contents)}")
+
+# Get layer details
+for layer in wms.contents:
+    print(f"\nLayer: {layer}")
+    print(f"  Title: {wms[layer].title}")
+    print(f"  BoundingBox: {wms[layer].boundingBox}")
+```
+
+## Advanced Techniques
+
+### Transparent Overlays
+
+Combine base imagery with transparent overlays:
+
+```javascript
+// Leaflet example
+var baseLayer = L.tileLayer.wms(wmsUrl, {
+  layers: 'LROC_WAC',
+  format: 'image/jpeg'
+});
+
+var overlayLayer = L.tileLayer.wms(wmsUrl, {
+  layers: 'nomenclature',
+  format: 'image/png',
+  transparent: true
+});
+
+map.addLayer(baseLayer);
+map.addLayer(overlayLayer);
+```
+
+### Time Series Animation
+
+For temporal datasets with time parameter support:
+
+```javascript
+var timeLayer = L.tileLayer.wms(wmsUrl, {
+  layers: 'seasonal_data',
+  time: '2023-01-01',
+  format: 'image/png'
+});
+
+// Update time parameter
+function updateTime(newTime) {
+  timeLayer.setParams({ time: newTime });
+}
+```
+
+### GetFeatureInfo Requests
+
+Query pixel values from WMS layers:
+
+```javascript
+map.on('click', function(e) {
+  var url = LOLA_color.getFeatureInfoUrl(e.latlng, {
+    query_layers: 'LOLA_elev',
+    info_format: 'text/plain'
+  });
+  
+  fetch(url)
+    .then(response => response.text())
+    .then(data => console.log('Elevation:', data));
+});
+```
+
+## Performance Optimization
+
+### Tile Caching
+
+<Tip>
+For repeated access, consider setting up a local tile cache using MapProxy or TileCache to reduce server load and improve performance.
+</Tip>
+
+**MapProxy Configuration Example:**
+
+```yaml
+sources:
+  moon_wms:
+    type: wms
+    req:
+      url: http://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl.map
+      layers: LOLA_color
+
+layers:
+  - name: moon_cached
+    title: Cached Moon Layer
+    sources: [moon_wms]
+
+caches:
+  moon_cache:
+    grids: [EPSG4326]
+    sources: [moon_wms]
+```
+
+### Request Optimization
+
+```javascript
+// Use appropriate tile size
+var layer = L.tileLayer.wms(url, {
+  layers: 'LOLA_color',
+  tileSize: 512,  // Reduce number of requests
+  maxZoom: 10      // Prevent excessive detail requests
+});
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Issue:** "Service not found" error  
+**Solution:** Verify the map file path in ServerUrl is correct
+
+**Issue:** Blank tiles or no data  
+**Solution:** Check DataWindow coordinates are within valid range (Lon: -180 to 360, Lat: -90 to 90)
+
+**Issue:** Slow performance  
+**Solution:** Reduce SizeX/SizeY values, use appropriate image format (JPEG for imagery, TIFF for elevation)
+
+**Issue:** Coordinate system mismatch  
+**Solution:** Ensure EPSG:4326 is specified in both Service/SRS and Projection elements
+
+## Source Files Reference
+
+- `gdal_MDIM21.xml` - Mars MDIM 2.1 configuration
+- `gdal_mars_MOLA_elev.xml` - Mars MOLA elevation configuration
+- `gdal_moon_LOLA_elev.xml` - Moon LOLA elevation configuration
+- `OpenLayers_MyMoon.html` - OpenLayers implementation example
+- `leaflet_moonWMS2_wGeoJSON_Box.html` - Leaflet implementation example
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="USGS Astro Web Maps" icon="globe" href="http://astrowebmaps.wr.usgs.gov/webmapatlas/Layers/maps.html">
+    Complete layer catalog and documentation
+  </Card>
+  <Card title="GDAL WMS Driver" icon="file-code" href="https://gdal.org/drivers/raster/wms.html">
+    GDAL WMS driver documentation
+  </Card>
+  <Card title="OpenLayers API" icon="map" href="https://openlayers.org/">
+    OpenLayers documentation and examples
+  </Card>
+  <Card title="Leaflet Documentation" icon="leaf" href="https://leafletjs.com/">
+    Leaflet API reference and tutorials
+  </Card>
+</CardGroup>
+
+## See Also
+
+- [OGC WMS Specification](https://www.ogc.org/standards/wms)
+- [GDAL Virtual File Systems](https://gdal.org/user/virtual_file_systems.html)
+- [IAU Planetary Projections](/planetary/iau-projections)

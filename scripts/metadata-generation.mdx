@@ -1,0 +1,317 @@
+---
+title: FGDC Metadata Generation
+description: Automatically generate FGDC-compliant metadata XML from GDAL rasters
+icon: file-lines
+---
+
+The `gdal2metadata.py` script generates Federal Geographic Data Committee (FGDC) compliant metadata XML files from GDAL-supported rasters.
+
+## Overview
+
+`gdal2metadata.py` extracts spatial information from a georeferenced raster and populates an FGDC metadata template, automating the creation of standards-compliant metadata documentation.
+
+## Usage
+
+<ParamField path="in_Geo.tif" type="string" required>
+  Path to input georeferenced raster file
+</ParamField>
+
+<ParamField path="in_FGDCtemplate.xml" type="string" required>
+  Path to FGDC metadata XML template
+</ParamField>
+
+<ParamField path="output.xml" type="string" required>
+  Path to output populated metadata XML
+</ParamField>
+
+<ParamField path="-debug" type="flag" default="false">
+  Print detailed image information during processing
+</ParamField>
+
+**Basic Syntax:**
+
+```bash
+python gdal2metadata.py in_Geo.tif in_FGDCtemplate.xml output.xml
+```
+
+**With Debug Output:**
+
+```bash
+python gdal2metadata.py -debug in_Geo.tif in_FGDCtemplate.xml output.xml
+```
+
+## Workflow
+
+<Steps>
+  <Step title="Prepare FGDC template">
+    Start with an FGDC metadata XML template containing your static metadata (title, abstract, contact information, etc.)
+  </Step>
+  
+  <Step title="Run gdal2metadata">
+    ```bash
+    python gdal2metadata.py lunar_mosaic.tif template.xml output_metadata.xml
+    ```
+  </Step>
+  
+  <Step title="Verify output">
+    Review the generated XML file to ensure all fields are correctly populated
+  </Step>
+  
+  <Step title="Manual refinement">
+    Edit the output XML to add or refine metadata that cannot be automatically extracted
+  </Step>
+</Steps>
+
+## What Gets Populated
+
+The script automatically extracts and populates:
+
+<CardGroup cols={2}>
+  <Card title="Spatial Information" icon="map">
+    - Bounding coordinates
+    - Coordinate system
+    - Projection parameters
+    - Datum and spheroid
+  </Card>
+  
+  <Card title="Raster Properties" icon="grid">
+    - Image dimensions
+    - Pixel resolution
+    - Number of bands
+    - Data type
+  </Card>
+  
+  <Card title="Geotransform" icon="location-arrow">
+    - Upper-left coordinates
+    - Pixel spacing
+    - Rotation parameters
+  </Card>
+  
+  <Card title="Temporal" icon="clock">
+    - Current date/time stamp
+    - Processing date
+  </Card>
+</CardGroup>
+
+## Template Requirements
+
+Your FGDC template XML must:
+
+1. **Conform to FGDC-STD-001-1998** (CSDGM - Content Standard for Digital Geospatial Metadata)
+2. **Include placeholder elements** for automatic population
+3. **Contain complete static metadata** (title, abstract, purpose, contact info, etc.)
+
+### Example Template Structure
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <idinfo>
+    <citation>
+      <citeinfo>
+        <title>Your Dataset Title</title>
+        <pubdate>YYYYMMDD</pubdate>
+      </citeinfo>
+    </citation>
+    <descript>
+      <abstract>Dataset abstract...</abstract>
+      <purpose>Purpose statement...</purpose>
+    </descript>
+    <spdom>
+      <bounding>
+        <westbc></westbc>  <!-- Auto-populated -->
+        <eastbc></eastbc>  <!-- Auto-populated -->
+        <northbc></northbc> <!-- Auto-populated -->
+        <southbc></southbc> <!-- Auto-populated -->
+      </bounding>
+    </spdom>
+  </idinfo>
+  <spdoinfo>
+    <direct>Raster</direct>
+    <rastinfo>
+      <rowcount></rowcount>  <!-- Auto-populated -->
+      <colcount></colcount>  <!-- Auto-populated -->
+    </rastinfo>
+  </spdoinfo>
+  <spref>
+    <!-- Projection info auto-populated -->
+  </spref>
+</metadata>
+```
+
+## Included Templates
+
+The repository includes example templates:
+
+<Tabs>
+  <Tab title="USGS DEM Template">
+    **File:** `USGS_DEM_template.tif.xml`
+    
+    Designed for USGS Digital Elevation Models with standard USGS metadata sections.
+  </Tab>
+  
+  <Tab title="ASU DTM Template">
+    **File:** `ASU_DTM_Template.xml`
+    
+    Template for Arizona State University Digital Terrain Models, typically used for planetary DTMs.
+  </Tab>
+  
+  <Tab title="NAC DTM Example">
+    **File:** `NAC_DTM_ATLAS5.tif.xml`
+    
+    Complete example metadata for Lunar Reconnaissance Orbiter Narrow Angle Camera DTM products.
+    
+    Includes companion README: `NAC_DTM_ATLAS5_README.TXT`
+  </Tab>
+</Tabs>
+
+## FGDC Metadata Standard
+
+### About FGDC CSDGM
+
+The Federal Geographic Data Committee's Content Standard for Digital Geospatial Metadata (FGDC-STD-001-1998) defines:
+
+<AccordionGroup>
+  <Accordion title="Identification Information" icon="id-card">
+    - Citation (title, publication date, authors)
+    - Description (abstract, purpose)
+    - Time period of content
+    - Spatial domain (bounding coordinates)
+    - Keywords and themes
+    - Access and use constraints
+  </Accordion>
+  
+  <Accordion title="Data Quality Information" icon="certificate">
+    - Positional accuracy
+    - Attribute accuracy  
+    - Logical consistency
+    - Completeness
+    - Lineage (source data and processing steps)
+  </Accordion>
+  
+  <Accordion title="Spatial Data Organization" icon="layer-group">
+    - Raster vs. vector
+    - Resolution/cell size
+    - Number of bands/dimensions
+  </Accordion>
+  
+  <Accordion title="Spatial Reference Information" icon="globe">
+    - Horizontal coordinate system
+    - Projection parameters
+    - Geodetic model (datum, spheroid)
+    - Vertical coordinate system
+  </Accordion>
+  
+  <Accordion title="Entity and Attribute Information" icon="table">
+    - Attribute definitions
+    - Value domains and ranges
+    - Units of measure
+  </Accordion>
+  
+  <Accordion title="Distribution Information" icon="share">
+    - Distributor contact
+    - Distribution format
+    - Transfer options
+  </Accordion>
+  
+  <Accordion title="Metadata Reference Information" icon="circle-info">
+    - Metadata date
+    - Metadata contact
+    - Metadata standard name and version
+  </Accordion>
+</AccordionGroup>
+
+## Implementation Details
+
+### XML Processing
+
+The script uses Python's XML libraries in order of preference:
+
+1. **lxml.etree** (preferred - most robust)
+2. **xml.etree.cElementTree** (Python 2.5+)
+3. **xml.etree.ElementTree**
+4. **cElementTree**
+5. **elementtree.ElementTree**
+
+### Recursive Element Search
+
+The script uses recursive search to find and populate template elements:
+
+```python
+def recursive_search(element, tag_to_search, replacement_value):
+    if element.tag == tag_to_search:
+        element.text = replacement_value
+    for child in element: 
+        recursive_search(child, tag_to_search, replacement_value)
+```
+
+This allows flexible template structures without requiring exact element paths.
+
+## Requirements
+
+<CodeGroup>
+
+```bash Standard Installation
+pip install gdal lxml
+```
+
+```bash Minimal (without lxml)
+pip install gdal
+# Will fall back to built-in xml.etree
+```
+
+</CodeGroup>
+
+## Limitations and Notes
+
+<Warning>
+**Proof of Concept Status:** Version 0.2 is not extensively tested across all use cases.
+</Warning>
+
+<Note>
+- **FGDC version support:** Currently only supports FGDC-STD-001-1998 (CSDGM)
+- **Manual editing required:** Static content (abstract, purpose, lineage, etc.) must be in your template
+- **Validation recommended:** Use FGDC metadata validation tools to verify output
+</Note>
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Batch Processing" icon="gears">
+    Automate metadata generation for large collections of rasters with similar characteristics
+  </Card>
+  
+  <Card title="Data Publishing" icon="upload">
+    Create compliant metadata for geospatial data portals and clearinghouses
+  </Card>
+  
+  <Card title="Archive Preparation" icon="box-archive">
+    Generate required metadata for long-term data archiving and preservation
+  </Card>
+  
+  <Card title="Quality Assurance" icon="clipboard-check">
+    Ensure spatial metadata consistency across multi-file datasets
+  </Card>
+</CardGroup>
+
+## Related Standards
+
+While this tool generates FGDC metadata, be aware of related standards:
+
+- **ISO 19115:** International standard for geographic metadata
+- **ISO 19139:** XML schema implementation of ISO 19115
+- **CSDGM → ISO conversion:** Tools exist to convert FGDC to ISO format
+
+<Tip>
+For NASA planetary data, consider PDS4 metadata standards in addition to or instead of FGDC.
+</Tip>
+
+## Credits
+
+**Author:** Trent Hare, USGS (thare@usgs.gov)  
+**Version:** 0.2 (October 2011)  
+**Based on:** gdalinfo.py by Even Rouault and Frank Warmerdam
+
+<Note>
+Released under MIT License. Use and modify freely for your metadata workflows.
+</Note>

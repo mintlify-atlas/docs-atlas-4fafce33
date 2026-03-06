@@ -1,0 +1,288 @@
+---
+title: PDS4 Conversion Tools
+description: Convert ISIS3 cubes to PDS4 format using GDAL with automated metadata extraction
+---
+
+## Overview
+
+These Python scripts demonstrate conversion from ISIS3 cubes to PDS4 format using GDAL's PDS4 driver. They read ISIS3 label metadata and generate configuration files for `gdal_translate`, enabling automated conversions with proper PDS4 metadata.
+
+<Info>
+PDS4 (Planetary Data System version 4) is NASA's current standard for archiving planetary science data. These tools bridge ISIS3 and PDS4 workflows.
+</Info>
+
+## Available Scripts
+
+### isis3_to_pds4_LOLA_pvl.py
+
+Uses the **PVL library** to parse ISIS3 labels.
+
+### isis3_to_pds4_LOLA_pysis.py
+
+Uses the **pysis library** to read ISIS3 labels via ISIS commands.
+
+<Note>
+Both scripts produce identical output but use different methods for reading ISIS3 metadata. Choose based on your environment and installed dependencies.
+</Note>
+
+## Installation
+
+### Requirements
+
+**For pvl version:**
+```bash
+conda install -c conda-forge gdal
+pip install pvl
+```
+
+**For pysis version:**
+```bash
+conda install -c conda-forge gdal
+pip install pysis
+```
+
+<Warning>
+GDAL 2.2.0 or later is required for PDS4 driver support. Use recent GDAL builds for best results.
+</Warning>
+
+## Usage
+
+### isis3_to_pds4_LOLA_pvl.py
+
+```bash
+python isis3_to_pds4_LOLA_pvl.py input.cub output.config
+```
+
+### Parameters
+
+<ParamField path="input.cub" type="string" required>
+  Input ISIS3 cube file.
+</ParamField>
+
+<ParamField path="output.config" type="string" required>
+  Output configuration file for `gdal_translate`.
+</ParamField>
+
+<ParamField path="-run" type="flag" optional>
+  Automatically execute `gdal_translate` after generating config.
+</ParamField>
+
+<ParamField path="-template" type="string" optional>
+  Path to custom PDS4 XML template. Defaults to `$GDALDATA/pds4_template.xml`.
+</ParamField>
+
+## Example Workflow
+
+<Steps>
+  <Step title="Generate Configuration">
+    Create a config file from your ISIS3 cube:
+    
+    ```bash
+    python isis3_to_pds4_LOLA_pvl.py ldem_4.cub ldem_4.config
+    ```
+    
+    **Output:**
+    ```
+    writing ldem_4.config
+    No ObservationId in ISIS3 Label
+    No FileName in ISIS3 Label
+    
+    Recommended gdal run:
+    gdal_translate -of PDS4 -co IMAGE_FORMAT=GEOTIFF -co TEMPLATE=pds4_template.xml \
+      --optfile ldem_4.config ldem_4.cub ldem_4_pds4.xml
+    ```
+  </Step>
+  
+  <Step title="Review Configuration">
+    Examine the generated config file:
+    
+    ```bash
+    cat ldem_4.config
+    ```
+    
+    **Example output:**
+    ```bash
+    #run as isis3_to_pds4_LOLA_pvl.py ldem_4.cub ldem_4.config
+    -co VAR_TARGET_TYPE=Satellite
+    -co VAR_INVESTIGATION_AREA_LID_REFERENCE="urn:nasa:pds:context:instrument_host:spacecraft.lro"
+    -co VAR_TARGET=MOON
+    -co VAR_INVESTIGATION_AREA_NAME="LUNAR RECONNAISSANCE ORBITER"
+    -co VAR_LOGICAL_IDENTIFIER=LRO-L-LOLA-4-GDR-V1.0
+    -co VAR_OBSERVING_SYSTEM_NAME=LOLA
+    -co VAR_TITLE=LDEM_4
+    ```
+  </Step>
+  
+  <Step title="Execute Conversion">
+    Run the recommended `gdal_translate` command:
+    
+    ```bash
+    gdal_translate -of PDS4 -co IMAGE_FORMAT=GEOTIFF \
+      -co TEMPLATE=pds4_template.xml \
+      --optfile ldem_4.config \
+      ldem_4.cub ldem_4_pds4.xml
+    ```
+  </Step>
+</Steps>
+
+### Automated Conversion
+
+Use the `-run` flag to execute conversion automatically:
+
+```bash
+python isis3_to_pds4_LOLA_pvl.py -run ldem_4.cub ldem_4.config
+```
+
+### Custom Template
+
+Provide a custom PDS4 XML template:
+
+```bash
+python isis3_to_pds4_LOLA_pvl.py -template my_template.xml input.cub output.config
+```
+
+## PDS4 Template Variables
+
+The scripts extract ISIS3 metadata and map it to PDS4 template variables:
+
+| Variable | ISIS3 Source | Description |
+|----------|--------------|-------------|
+| `VAR_TARGET` | `Mapping/TargetName` | Target body name (e.g., MOON, MARS) |
+| `VAR_TARGET_TYPE` | Hardcoded | Set to "Satellite" |
+| `VAR_INVESTIGATION_AREA_NAME` | `Archive/InstrumentHostName` | Mission name (e.g., "LUNAR RECONNAISSANCE ORBITER") |
+| `VAR_LOGICAL_IDENTIFIER` | `Archive/DataSetId` | Dataset identifier (e.g., "LRO-L-LOLA-4-GDR-V1.0") |
+| `VAR_OBSERVING_SYSTEM_NAME` | `Archive/InstrumentId` | Instrument name (e.g., "LOLA") |
+| `VAR_TITLE` | `Archive/ProductId` | Product title |
+| `VAR_INVESTIGATION_AREA_LID_REFERENCE` | Hardcoded | Context URN for mission |
+
+<Warning>
+**Missing Metadata:** If ISIS3 labels lack required fields, warnings are printed and those variables are omitted from the config file. You may need to manually add them.
+</Warning>
+
+## PDS4 Format Details
+
+### What is PDS4?
+
+PDS4 is the fourth major version of NASA's Planetary Data System standard, featuring:
+
+- **XML Labels**: Structured, validated metadata in XML format
+- **Multiple Data Formats**: Supports FITS, GeoTIFF, raw binary, and more
+- **Context Products**: Links to missions, instruments, targets, and investigators
+- **Schema Validation**: Ensures compliance with PDS4 standards
+
+### GDAL PDS4 Driver
+
+The GDAL PDS4 driver supports:
+- Reading and writing PDS4 products
+- GeoTIFF-embedded image data (`IMAGE_FORMAT=GEOTIFF`)
+- Custom XML templates with variable substitution
+- Spatial reference system preservation
+
+<Info>
+For complete GDAL PDS4 driver documentation, see: [http://www.gdal.org/frmt_pds4.html](http://www.gdal.org/frmt_pds4.html)
+</Info>
+
+## Test Data
+
+Example test data included in the repository:
+
+```
+~/workspace/source/PDS4gdal/test/ldem_4.cub
+~/workspace/source/PDS4gdal/test/ldem_4_original_pds3.lbl
+```
+
+**Data Source:** LOLA 4 ppd DEM converted to ISIS3 from PDS:
+[http://pds-geosciences.wustl.edu/missions/lro/lola.htm](http://pds-geosciences.wustl.edu/missions/lro/lola.htm)
+
+## Configuration File Format
+
+The generated `.config` files contain `gdal_translate` options:
+
+```bash
+# Comment line with generation command
+-co VAR_NAME=VALUE
+-co VAR_NAME="VALUE WITH SPACES"
+```
+
+Use with `gdal_translate --optfile config.txt` to avoid lengthy command lines.
+
+## Customization
+
+### Modifying Extracted Metadata
+
+Edit the Python scripts to extract additional ISIS3 metadata:
+
+```python
+# Example: Add custom field
+try:
+    customField = isis3lbl['IsisCube']['MyGroup']['MyKeyword']
+    theLine = '-co VAR_CUSTOM={}'.format(customField)
+    fileConfig.write(theLine)
+except KeyError:
+    print('No MyKeyword in ISIS3 Label')
+```
+
+### Custom PDS4 Templates
+
+Create custom XML templates with placeholder variables:
+
+```xml
+<Mission_Area>
+  <mission_name>${VAR_INVESTIGATION_AREA_NAME}</mission_name>
+  <spacecraft_name>${VAR_SPACECRAFT_NAME}</spacecraft_name>
+</Mission_Area>
+```
+
+The GDAL driver replaces `${VAR_*}` with values from `-co` options.
+
+## Script Locations
+
+```
+~/workspace/source/PDS4gdal/isis3_to_pds4_LOLA_pvl.py
+~/workspace/source/PDS4gdal/isis3_to_pds4_LOLA_pysis.py
+~/workspace/source/PDS4gdal/pds4_template.xml
+```
+
+## Troubleshooting
+
+### GDAL Version Issues
+
+```bash
+python -c "import gdal; print(gdal.__version__)"
+```
+
+Ensure GDAL >= 2.2.0 for PDS4 support.
+
+### Missing ISIS3 Metadata
+
+If required fields are missing from ISIS3 labels, edit the config file manually:
+
+```bash
+-co VAR_LOGICAL_IDENTIFIER=YOUR-DATASET-ID
+```
+
+### Template Not Found
+
+Set `GDAL_DATA` environment variable:
+
+```bash
+export GDAL_DATA=/path/to/gdal/data
+```
+
+Or specify template explicitly:
+
+```bash
+-template /full/path/to/pds4_template.xml
+```
+
+## Related Resources
+
+- [GDAL PDS4 Driver Documentation](http://www.gdal.org/frmt_pds4.html)
+- [PDS4 Standards](https://pds.nasa.gov/datastandards/about/)
+- [ISIS3 Documentation](https://isis.astrogeology.usgs.gov/)
+- [PVL Library](https://pypi.python.org/pypi/pvl)
+- [pysis Library](https://github.com/wtolson/pysis)
+
+<Info>
+These scripts serve as examples. Adapt them for your specific mission data and PDS4 requirements.
+</Info>

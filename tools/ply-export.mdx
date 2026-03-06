@@ -1,0 +1,290 @@
+---
+title: 'PLY Export'
+description: 'Export GDAL rasters to PLY 3D mesh format'
+---
+
+## Overview
+
+`gdal2PLY.py` converts Digital Elevation Models (DEMs) or Digital Terrain Models (DTMs) into 3D binary PLY (Polygon File Format) meshes suitable for 3D visualization and analysis.
+
+## Purpose
+
+Create a 3D binary PLY format file from a GDAL-supported DEM/DTM raster, generating a triangulated mesh representation of terrain data.
+
+**Original Author:** Jake (posted on GIS StackExchange)  
+**Modifications:** Trent Hare, USGS  
+**Source:** [GIS StackExchange](http://gis.stackexchange.com/questions/121561/generating-a-mesh-from-dtm)
+
+## Installation Requirements
+
+```bash
+pip install gdal numpy
+```
+
+Recommended environment: Anaconda with GDAL installed via `conda install gdal`
+
+## Command Syntax
+
+```bash
+python gdal2PLY.py input.tif output.ply
+```
+
+### Parameters
+
+<ParamField path="input.tif" type="string" required>
+  Input DEM/DTM file (any GDAL-supported raster format)
+</ParamField>
+
+<ParamField path="output.ply" type="string" required>
+  Output PLY mesh file (binary format)
+</ParamField>
+
+## Usage Examples
+
+### Basic DEM to PLY Conversion
+
+```bash
+python gdal2PLY.py elevation_dem.tif terrain_mesh.ply
+```
+
+### Complete Workflow with NoData Handling
+
+```bash
+# Step 1: Find minimum Z value
+gdalinfo -mm input_DEM.tif
+# Output shows: min = -2790.594
+
+# Step 2: Set NoData value and resample to 10m/pixel
+gdalwarp -dstnodata -2791 -tr 10 10 -r bilinear input_DEM.tif input_DEM_10m_nodata.tif
+
+# Step 3: Generate PLY mesh
+python gdal2PLY.py input_DEM_10m_nodata.tif output_DEM_10m.ply
+```
+
+## NoData Handling
+
+<Warning>
+The current version does not automatically handle NoData values. Use the workflow below to prepare your data.
+</Warning>
+
+### NoData Work-around Process
+
+**1. Identify Minimum Elevation**
+
+```bash
+gdalinfo -mm input_DEM.tif
+```
+
+Example output: `Computed Min/Max=-2790.594,5432.123`
+
+**2. Set NoData to Safe Value**
+
+Set GDAL NoData to the next round value below the minimum:
+
+```bash
+gdalwarp -dstnodata -2791 -tr 10 10 -r bilinear input_DEM.tif prepared_DEM.tif
+```
+
+**3. Generate PLY**
+
+```bash
+python gdal2PLY.py prepared_DEM.tif output_mesh.ply
+```
+
+## How It Works
+
+### Vertex Array Creation
+
+The script creates a vertex array from the raster (see `gdal2PLY.py:69-78`):
+
+```python
+def createvertexarray(raster):
+    transform = raster.GetGeoTransform()
+    width = raster.RasterXSize
+    height = raster.RasterYSize
+    x = np.arange(0, width) * transform[1] + transform[0]
+    y = np.arange(0, height) * transform[5] + transform[3]
+    xx, yy = np.meshgrid(x, y)
+    zz = raster.ReadAsArray()
+    vertices = np.vstack((xx,yy,zz)).reshape([3, -1]).transpose()
+    return vertices
+```
+
+### Triangle Index Generation
+
+Creates triangulated faces from the grid (see `gdal2PLY.py:81-93`):
+
+```python
+def createindexarray(raster):
+    width = raster.RasterXSize
+    height = raster.RasterYSize
+    ai = np.arange(0, width - 1)
+    aj = np.arange(0, height - 1)
+    aii, ajj = np.meshgrid(ai, aj)
+    a = aii + ajj * width
+    a = a.flatten()
+    tria = np.vstack((a, a + width, a + width + 1, a, a + width + 1, a + 1))
+    tria = np.transpose(tria).reshape([-1, 3])
+    return tria
+```
+
+### PLY File Structure
+
+The output PLY file contains:
+
+- **Header**: Binary little/big-endian format specification
+- **Vertex Properties**: x, y, z coordinates (float32)
+- **Face Definitions**: Triangle vertex indices (int32)
+- **Binary Data**: Efficient storage of geometry
+
+## PLY Format Specification
+
+Example PLY header generated:
+
+```
+ply
+format binary_little_endian 1.0
+element vertex 1000000
+property float x
+property float y
+property float z
+element face 1998000
+property list int int vertex_index
+end_header
+```
+
+## Performance Considerations
+
+<Info>
+**Large DEMs**: For very large DEMs, consider resampling before conversion to reduce mesh complexity and file size.
+</Info>
+
+### Optimization Tips
+
+**1. Resample Large Datasets**
+
+```bash
+gdalwarp -tr 50 50 -r average large_dem.tif resampled_dem.tif
+python gdal2PLY.py resampled_dem.tif mesh.ply
+```
+
+**2. Clip to Area of Interest**
+
+```bash
+gdal_translate -projwin ulx uly lrx lry input.tif clipped.tif
+python gdal2PLY.py clipped.tif clipped_mesh.ply
+```
+
+**3. Memory Considerations**
+
+The script loads the entire raster into memory. For a 10000x10000 pixel DEM:
+- Vertices: ~1.2 GB
+- Triangles: ~2.4 GB
+- Total memory usage: ~3-4 GB
+
+## Viewing PLY Files
+
+### Recommended Software
+
+- **MeshLab**: Open-source mesh processing tool
+- **CloudCompare**: Point cloud and mesh viewer
+- **Blender**: 3D modeling and visualization
+- **ParaView**: Scientific visualization
+
+### Load in MeshLab
+
+```bash
+meshlab output_mesh.ply
+```
+
+## Related Tools
+
+### PlateVertex2Obj
+
+For converting PDS Shapemodel or Plate-Vertex formats to Wavefront OBJ format, use the companion tool `PlateVertex2Obj.py`.
+
+#### Usage
+
+```bash
+PlateVertex2Obj.py input.tab output.obj
+```
+
+#### Purpose
+
+Convert simple 3D PDS Shapemodel or Plate-Vertex files to Alias WaveFront OBJ format. This assumes original vertices are listed in sequential order (1, 2, 3, 4, ...n).
+
+#### Example: NEAR Eros Shape Model
+
+Download from [SBN Tools](http://sbntools.psi.edu/ferret/datasetDetail.action?dataSetId=NEAR-A-MSI-5-EROSSHAPE-V1.0):
+
+```bash
+# Find plate-vertex files under: NEAR_A_MSI_5_EROSSHAPE_V1_0/data/vertex/
+PlateVertex2Obj.py ver512q.tab ver512q_3D.obj
+```
+
+#### File Format
+
+Input file structure:
+```
+nVertices nFaces
+index x y z
+index x y z
+...
+index v1 v2 v3
+index v1 v2 v3
+...
+```
+
+Output OBJ format:
+```
+v x y z
+v x y z
+...
+f v1 v2 v3
+f v1 v2 v3
+...
+```
+
+## Technical Details
+
+### Coordinate System
+
+The PLY mesh uses the same coordinate system as the input raster:
+- X, Y: Derived from geotransform (map coordinates)
+- Z: Elevation values from raster band
+
+### Mesh Topology
+
+Each grid cell creates two triangles:
+```
+(x,y) -------- (x+1,y)
+  |  \            |
+  |    \          |
+  |      \        |
+  |        \      |
+(x,y+1) ---- (x+1,y+1)
+```
+
+Triangles: `(a, a+width, a+width+1)` and `(a, a+width+1, a+1)`
+
+## Source Code Reference
+
+- `gdal2PLY.py:28-62` - PLY file writing with binary format support
+- `gdal2PLY.py:69-78` - Vertex array creation from raster
+- `gdal2PLY.py:81-93` - Triangle index generation
+- `PlateVertex2Obj.py:38-53` - PDS to OBJ conversion loop
+
+## Limitations
+
+<Warning>
+- Does not currently handle NoData values automatically (use workaround)
+- Loads entire raster into memory (may require significant RAM for large DEMs)
+- Output is binary format only (ASCII option exists but not default)
+- No color/texture mapping (geometry only)
+</Warning>
+
+## See Also
+
+- [PLY File Format Specification](http://paulbourke.net/dataformats/ply/)
+- [GDAL Raster Data Model](https://gdal.org/user/raster_data_model.html)
+- [NumPy Meshgrid](https://numpy.org/doc/stable/reference/generated/numpy.meshgrid.html)

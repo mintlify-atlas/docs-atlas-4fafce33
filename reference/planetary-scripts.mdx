@@ -1,0 +1,445 @@
+---
+title: Planetary-Specific Scripts
+description: Specialized tools for planetary data processing and coordinate systems
+---
+
+# Planetary-Specific Scripts
+
+Specialized utilities for planetary science data processing, including slope analysis, coordinate system definitions, and format conversions.
+
+## gdal_baseline_slope.py
+
+Calculates slope from DEMs using specialized baseline lengths or Horn's method.
+
+### Usage
+
+```bash
+python gdal_baseline_slope.py [options] infile outfile.tif
+```
+
+### Parameters
+
+<ParamField path="infile" type="string" required>
+  Input DEM file
+</ParamField>
+
+<ParamField path="outfile.tif" type="string" required>
+  Output slope file (GeoTIFF)
+</ParamField>
+
+### Options
+
+<ParamField path="-baseline" type="integer">
+  Baseline length in pixels for slope calculation. If not specified, uses Horn's method (equivalent to gdaldem slope).
+  ```bash
+  -baseline 5  # Use 5-pixel baseline
+  ```
+</ParamField>
+
+<ParamField path="-ot" type="datatype">
+  Output data type (default: same as input)
+  
+  Options: `Byte`, `Int16`, `UInt16`, `Int32`, `UInt32`, `Float32`, `Float64`
+  ```bash
+  -ot Byte  # Output as 8-bit with scaling
+  ```
+</ParamField>
+
+<ParamField path="-crop" type="flag">
+  Crop output to remove edge effects from baseline calculation
+</ParamField>
+
+<ParamField path="-q" type="flag">
+  Quiet mode - suppress progress output
+</ParamField>
+
+### Slope Calculation Methods
+
+#### Horn's Method (Default)
+
+When `-baseline` is not specified:
+- Uses 3x3 kernel (standard GIS slope calculation)
+- Equivalent to `gdaldem slope`
+- No shift in geotransform
+
+```python
+dz_dx = ((c + 2f + i) - (a + 2d + g)) / (8 * cellsize_x)
+dz_dy = ((g + 2h + i) - (a + 2b + c)) / (8 * cellsize_y)
+slope_degrees = atan(sqrt(dz_dx² + dz_dy²)) * 180/π
+```
+
+#### Baseline Method
+
+When `-baseline N` is specified:
+- Uses corner points of N×N footprint
+- Follows Kirk's method for planetary analysis
+- Even baselines shift geotransform by half pixel
+
+```python
+dz_dx = ((b + d) - (a + c)) / (2 * baseline * cellsize_x)
+dz_dy = ((a + b) - (c + d)) / (2 * baseline * cellsize_y)
+slope_degrees = atan(sqrt(dz_dx² + dz_dy²)) * 180/π
+```
+
+### Byte Output Scaling
+
+When `-ot Byte` is used:
+- Slopes are scaled to 1-255 range
+- Formula: `DN = (slope + 0.2) × 5.0`
+- Slopes >50° map to 255
+- NoData = 0
+- Set offset = -0.2, scale = 0.2 in output
+
+### Example
+
+```bash
+# Standard Horn's method
+python gdal_baseline_slope.py input_dem.tif output_slope.tif
+
+# 5-pixel baseline
+python gdal_baseline_slope.py -baseline 5 input_dem.tif output_slope_5px.tif
+
+# 8-bit output with 10-pixel baseline
+python gdal_baseline_slope.py -baseline 10 -ot Byte input_dem.tif output_slope_8bit.tif
+
+# With cropping to remove edge effects
+python gdal_baseline_slope.py -baseline 5 -crop input_dem.tif output_slope_cropped.tif
+```
+
+### Cropping Behavior
+
+When `-crop` is used with `-baseline`:
+
+| Baseline | Pixels Removed | Geotransform Shift |
+|----------|----------------|--------------------|
+| 1        | 1 (right/bottom) | +1 pixel X/Y |
+| 2        | 1 (each edge) | +1 pixel X/Y |
+| 5        | 2-3 (edges) | +3 pixels X/Y |
+
+### Requirements
+
+<Warning>
+**Dependencies:**
+- Python 2.7+ or Python 3.x
+- GDAL Python bindings
+- NumPy
+- SciPy (for `generic_filter`)
+</Warning>
+
+```bash
+conda install -c conda-forge gdal numpy scipy
+```
+
+---
+
+## create_IAU2000_wkt_v3.py
+
+Generates OGC WKT (Well-Known Text) projection strings for IAU planetary coordinate systems.
+
+### Usage
+
+```bash
+python create_IAU2000_wkt_v3.py input_csv [output.wkt]
+```
+
+### Parameters
+
+<ParamField path="input_csv" type="string" required>
+  Input CSV file with IAU body radii
+  
+  Must be named: `naifcodes_radii_m_wAsteroids_IAU{YEAR}.csv`
+  
+  Supported years: 2000, 2009, 2015
+</ParamField>
+
+<ParamField path="output.wkt" type="string">
+  Output WKT file (default: stdout)
+</ParamField>
+
+### Input CSV Format
+
+```csv
+Naif_id,Body,IAU2000_Mean,IAU2000_Semimajor,IAU2000_Axisb,IAU2000_Semiminor
+199,Mercury,2439700.00,2439700.00,2439700.00,2439700.00
+299,Venus,6051800.00,6051800.00,6051800.00,6051800.00
+399,Earth,6371000.00,6378140.00,6378140.00,6356750.00
+301,Moon,1737400.00,1737400.00,1737400.00,1737400.00
+499,Mars,3389500.00,3396190.00,3396190.00,3376200.00
+```
+
+### Generated Coordinate Systems
+
+For each body, generates multiple coordinate system definitions:
+
+#### Geographic Systems
+- **X00** - Planetocentric
+- **X01** - Planetographic
+
+#### Static Projections
+- **X10-X13** - Equirectangular (ocentric/ographic, clon 0/180)
+- **X14-X17** - Sinusoidal (ocentric/ographic, clon 0/180)
+- **X18-X21** - Polar Stereographic (North/South, ocentric/ographic)
+- **X22-X29** - Mollweide and Robinson variants
+
+#### AUTO Projections (Variable Center)
+- **X60-X61** - Sinusoidal AUTO
+- **X62-X63** - Stereographic AUTO
+- **X64-X65** - Transverse Mercator AUTO
+- **X66-X67** - Orthographic AUTO
+- **X68-X69** - Equirectangular AUTO
+- **X70-X71** - Lambert Conformal Conic AUTO
+- **X72-X73** - Lambert Azimuthal Equal Area AUTO
+- **X74-X75** - Mercator AUTO
+- **X76-X77** - Albers AUTO
+- **X78-X79** - Oblique Cylindrical Equal Area AUTO
+- **X80-X83** - Mollweide and Robinson AUTO
+
+Where X = NAIF_ID * 100 + code
+
+### Example
+
+```bash
+# Generate IAU 2015 definitions
+python create_IAU2000_wkt_v3.py naifcodes_radii_m_wAsteroids_IAU2015.csv iau2015.wkt
+
+# Output to stdout
+python create_IAU2000_wkt_v3.py naifcodes_radii_m_wAsteroids_IAU2015.csv
+```
+
+### Output Format
+
+```
+#IAU2015 WKT Codes for Mars
+49900,GEOGCS["Mars 2015",DATUM["D_Mars_2015",...],AUTHORITY["IAU2015","49900"]]
+49901,GEOGCS["Mars 2015",DATUM["D_Mars_2015",...],AUTHORITY["IAU2015","49901"]]
+49910,PROJCS["Mars_Equidistant_Cylindrical",...,AUTHORITY["IAU2015","49910"]]
+...
+```
+
+### Use Cases
+
+- Configuring WMS/WCS services for planetary data
+- Creating custom projections for planetary mapping
+- Supporting GDAL/MapServer planetary coordinate systems
+- Generating ESRI .prj files for planetary data
+
+### IAU Reports Supported
+
+- **IAU 2000** - Seidelmann et al. (2002)
+- **IAU 2009** - Archinal et al. (2011)
+- **IAU 2015** - Archinal et al. (2018)
+
+---
+
+## isis3_to_pds4_LOLA_pvl.py
+
+Converts ISIS3 cube labels to PDS4 format using GDAL's PDS4 driver.
+
+### Usage
+
+```bash
+python isis3_to_pds4_LOLA_pvl.py [options] input.cub output_config.txt
+```
+
+### Parameters
+
+<ParamField path="input.cub" type="string" required>
+  Input ISIS3 cube file
+</ParamField>
+
+<ParamField path="output_config.txt" type="string" required>
+  Output GDAL configuration file for PDS4 conversion
+</ParamField>
+
+### Options
+
+<ParamField path="-run" type="flag">
+  Automatically execute gdal_translate after creating config
+</ParamField>
+
+<ParamField path="-template" type="string">
+  Path to custom PDS4 XML template
+  
+  Default: `$GDALDATA/pds4_template.xml`
+  ```bash
+  -template custom_template.xml
+  ```
+</ParamField>
+
+### How It Works
+
+1. Reads ISIS3 label using Python PVL library
+2. Extracts metadata: target, mission, instrument, product ID
+3. Creates GDAL configuration file with PDS4 variables
+4. Optionally runs `gdal_translate` to create PDS4 product
+
+### Output Files
+
+Generated configuration file contains:
+```
+-co VAR_TARGET_TYPE=Satellite
+-co VAR_TARGET=MOON
+-co VAR_INVESTIGATION_AREA_NAME="LUNAR RECONNAISSANCE ORBITER"
+-co VAR_LOGICAL_IDENTIFIER=LRO_LOLA_DEM
+-co VAR_OBSERVING_SYSTEM_NAME=LOLA
+-co VAR_TITLE=LRO_LOLA_DEM_TILE_01
+```
+
+### Example
+
+```bash
+# Create config file only
+python isis3_to_pds4_LOLA_pvl.py input.cub output.config
+
+# Create config and run conversion
+python isis3_to_pds4_LOLA_pvl.py -run input.cub output.config
+
+# Use custom template
+python isis3_to_pds4_LOLA_pvl.py -template my_template.xml input.cub output.config
+```
+
+### Manual Conversion
+
+After creating config file:
+```bash
+gdal_translate -of PDS4 -co IMAGE_FORMAT=GEOTIFF \
+  -co TEMPLATE=pds4_template.xml \
+  --optfile output.config \
+  input.cub output_pds4.xml
+```
+
+### Requirements
+
+<Warning>
+**Dependencies:**
+- Python 3.x
+- GDAL 2.2.0+ with PDS4 driver support
+- PVL library: `pip install pvl`
+</Warning>
+
+```bash
+# Install PVL library
+pip install pvl
+
+# Verify GDAL PDS4 support
+gdalinfo --format PDS4
+```
+
+---
+
+## fix_jp2_v2
+
+Corrects GeoJP2 projection keywords for Equirectangular projections (C++ utility).
+
+### Purpose
+
+Fixes HiRISE and other JPEG2000 files where `CenterLatGeoKey` was incorrectly used instead of `StandardParallel1GeoKey` in Equirectangular projections.
+
+### Usage
+
+```bash
+fix_jp2_v2 targetfile.jp2
+```
+
+### Parameters
+
+<ParamField path="targetfile.jp2" type="string" required>
+  Input/output JPEG2000 file to fix (modified in place)
+</ParamField>
+
+### How It Works
+
+1. Opens the JPEG2000 file
+2. Locates the GeoTIFF metadata section
+3. Changes `CenterLatGeoKey` tag to `StandardParallel1GeoKey`
+4. Writes changes (only a few bytes modified)
+5. Does **not** decompress/recompress imagery
+
+### Safety
+
+<Warning>
+Version 2 update (Jan 10, 2023):
+- Skips files already corrected by HiRISE team
+- Only modifies files that need correction
+- Always backup files before running
+</Warning>
+
+### Example
+
+```bash
+# Backup original file
+cp PSP_001234_1234_RED.jp2 PSP_001234_1234_RED.jp2.backup
+
+# Fix projection
+fix_jp2_v2 PSP_001234_1234_RED.jp2
+
+# Verify fix
+gdalinfo PSP_001234_1234_RED.jp2 | grep -i projection
+```
+
+### Compilation
+
+```bash
+# Linux/Mac
+g++ -o fix_jp2_v2 fix_jp2_v2.cpp
+
+# Windows (Visual Studio)
+# Open in Visual Studio and build as console application
+```
+
+### Use Cases
+
+- Fixing older HiRISE JPEG2000 files
+- Correcting GeoJP2 files with incorrect projection parameters
+- Batch processing of archived data
+
+### Technical Details
+
+Addresses GDAL ticket: http://trac.osgeo.org/gdal/ticket/2706
+
+---
+
+## Common Workflows
+
+### Planetary Slope Analysis Workflow
+
+```bash
+# 1. Calculate baseline slope
+python gdal_baseline_slope.py -baseline 5 -ot Byte mars_dem.tif mars_slope.tif
+
+# 2. Generate histogram
+python gdal_hist.py -hist mars_slope.tif > mars_slope_hist.txt
+
+# 3. Create visualization
+python slope_histogram_cumulative_graph.py -name "Mars Site" \
+  mars_slope_hist.txt mars_slope_graph.png
+```
+
+### PDS4 Archive Workflow
+
+```bash
+# 1. Convert to ISIS3 if needed
+python Astropedia_gdal2ISIS3.py input.tif temp.cub
+
+# 2. Create PDS4 configuration
+python isis3_to_pds4_LOLA_pvl.py temp.cub pds4.config
+
+# 3. Generate PDS4 product
+gdal_translate -of PDS4 -co IMAGE_FORMAT=GEOTIFF \
+  --optfile pds4.config temp.cub output_pds4.xml
+```
+
+## Requirements
+
+All planetary scripts require:
+- Python 2.7+ or Python 3.x (varies by script)
+- GDAL/OGR Python bindings
+- Script-specific dependencies (NumPy, SciPy, pvl)
+
+## Author
+
+Developed by Trent Hare and contributors at USGS Astrogeology Science Center.
+
+## License
+
+Public domain (Unlicense) unless otherwise specified.

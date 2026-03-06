@@ -1,0 +1,153 @@
+---
+title: 'Gore Generation'
+description: 'Convert Simple Cylindrical map projections into gore patterns for spherical surfaces'
+---
+
+## Overview
+
+`gdal2gores.py` transforms a Simple Cylindrical map projected image into an image with n gores, suitable for printing maps on spheres like tennis balls or globes. The script remaps pixels using an interrupted sinusoidal projection pattern.
+
+## Purpose
+
+Given a Simple Cylindrical map projected image, this tool remaps it to an image with multiple gores for placing or printing the map on a spherical surface.
+
+**Author:** Trent Hare, USGS  
+**Credits:** Based on C# implementation by Michal Wisniewski (winski software)
+
+## Installation Requirements
+
+```bash
+pip install gdal numpy
+```
+
+## Command Syntax
+
+```bash
+gdal2gores.py -ng number_of_gores infile outfile
+```
+
+### Parameters
+
+<ParamField path="-ng" type="integer" default="8">
+  Number of gores to generate in the output file, based on interrupted sinusoidal projection
+</ParamField>
+
+<ParamField path="-q" type="flag">
+  Quiet mode - suppresses progress output
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Input Simple Cylindrical map projected image (any GDAL-supported format)
+</ParamField>
+
+<ParamField path="outfile" type="string" required>
+  Output filename (currently defaults to GeoTIFF format)
+</ParamField>
+
+## Usage Examples
+
+### Basic Gore Generation
+
+Generate a gore map with the default 8 gores:
+
+```bash
+gdal2gores.py mars_map.tif mars_gores.tif
+```
+
+<Warning>
+If you don't specify `-ng`, the script will default to 8 gores and display a warning message.
+</Warning>
+
+### Custom Number of Gores
+
+Create a 12-gore pattern for a globe:
+
+```bash
+gdal2gores.py -ng 12 moon_map.tif moon_12gores.tif
+```
+
+### Quiet Mode
+
+Run without progress output:
+
+```bash
+gdal2gores.py -ng 8 -q input_map.tif output_gores.tif
+```
+
+## How It Works
+
+The gore transformation algorithm:
+
+1. **Gore Width Calculation**: Divides the input image width by the number of gores
+2. **Pixel Remapping**: For each gore, pixels are repositioned using cosine transformation:
+   ```
+   newX = goreCenter + cos((-π/2) + (π × y / height)) × (x - goreWidth/2)
+   ```
+3. **Edge Overlap**: Uses rounding to increase overlap at gore edges for better alignment
+4. **Sequential Processing**: Processes line-by-line to handle large images efficiently
+
+## Technical Details
+
+### Output Characteristics
+
+- **Format**: GeoTIFF (currently hardwired)
+- **Size**: Same dimensions as input image
+- **Bands**: Preserves all bands from input
+- **Data Type**: Matches input image data type (Byte, Int16, etc.)
+- **Projection**: No projection metadata (this is a gore image)
+
+### Processing Notes
+
+<Info>
+The script processes images line-by-line, making it capable of handling very large images without memory issues.
+</Info>
+
+- Processes each band separately
+- Iterates over lines in reverse order (bottom to top)
+- Each gore is processed independently within each scanline
+- Progress is displayed per band unless quiet mode is enabled
+
+## Practical Applications
+
+### Creating Sphere Maps
+
+1. **Print and Cut**: Print the gore image and cut along gore boundaries
+2. **Apply to Sphere**: Align and glue each gore section onto a spherical surface
+3. **Tennis Ball Maps**: Perfect for DIY planetary globes on tennis balls
+
+### Globe Manufacturing
+
+The gore pattern follows standard globe manufacturing techniques where flat map segments are arranged to minimize distortion when applied to spherical surfaces.
+
+## Example Workflow
+
+```bash
+# Start with a Simple Cylindrical projection
+gdal_translate -of GTiff -a_srs EPSG:4326 planet_map.tif planet_equi.tif
+
+# Generate 8 gores
+gdal2gores.py -ng 8 planet_equi.tif planet_gores.tif
+
+# Convert to PNG for printing
+gdal_translate -of PNG planet_gores.tif planet_gores_print.png
+```
+
+## Source Code Reference
+
+The core transformation logic is located in:
+- `gdal2gores.py:131-144` - Gore iteration and pixel remapping
+- `gdal2gores.py:138-139` - Cosine transformation for pixel positioning
+
+## Limitations
+
+<Warning>
+- Output format is currently hardwired to GeoTIFF
+- Input must be in Simple Cylindrical projection
+- No projection metadata is written to output file
+</Warning>
+
+## See Also
+
+- [GDAL Python API](https://gdal.org/api/python.html)
+- [Simple Cylindrical Projection](https://proj.org/operations/projections/eqc.html)
+- [Interrupted Projections](https://en.wikipedia.org/wiki/Interruption_(map_projection))

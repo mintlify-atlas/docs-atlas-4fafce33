@@ -1,0 +1,109 @@
+---
+title: Introduction
+description: Overview of GDAL Scripts for planetary data processing
+---
+
+## What is GDAL Scripts?
+
+GDAL Scripts is a collection of Python-based utilities for planetary data processing, developed and maintained by the **USGS Astrogeology Science Center**. These scripts extend the capabilities of the Geospatial Data Abstraction Library (GDAL) to address specific challenges in processing planetary science data from missions studying the Moon, Mars, and other celestial bodies.
+
+<Note>
+  This project is hosted on GitHub at [thareUSGS/GDAL_scripts](https://github.com/thareUSGS/GDAL_scripts)
+</Note>
+
+## Key Capabilities
+
+The GDAL Scripts collection provides specialized tools organized into several categories:
+
+<CardGroup cols={2}>
+  <Card title="Coordinate Transformations" icon="map-location-dot">
+    Convert between pixel, meter, and lat/lon coordinate systems with scripts like `pixel2longlat.py`, `longlat2meters.py`, and `meters2longlat.py`
+  </Card>
+  
+  <Card title="Terrain Analysis" icon="mountain">
+    Calculate specialized slopes using various baseline lengths with `gdal_baseline_slope.py`, implementing methods developed specifically for planetary terrain analysis
+  </Card>
+  
+  <Card title="Format Conversion" icon="arrows-rotate">
+    Convert between planetary data formats including ISIS3, PDS3, PDS4, and standard geospatial formats
+  </Card>
+  
+  <Card title="Projection Systems" icon="globe">
+    Work with IAU2000/2009/2015 coordinate reference systems for planetary bodies through WKT representations
+  </Card>
+</CardGroup>
+
+### Additional Tools
+
+- **Data Clipping & Range**: `gdal_clip2range.py` for clipping pixel values to valid ranges
+- **Image Matching**: `gdal_match_image_extents.py` for aligning image extents
+- **Metadata Operations**: Scripts for copying labels, extracting metadata, and working with HDF5 subdatasets
+- **Spatial Data**: Convert ISIS miner results, footprints, and STAC items to shapefiles
+- **3D Data**: Generate PLY point clouds, XYZ coordinate exports in geocentric space
+
+## Problems It Solves
+
+### Planetary Data Processing Challenges
+
+Working with planetary science data presents unique challenges that standard geospatial tools don't always address:
+
+1. **Non-Earth Coordinate Systems**: Planetary bodies require specialized coordinate reference systems defined by the IAU (International Astronomical Union), not the Earth-based EPSG codes used in most GIS software.
+
+2. **Mission-Specific Formats**: Data from NASA and international missions often comes in specialized formats like ISIS3 cubes or PDS (Planetary Data System) files that need conversion for analysis.
+
+3. **Terrain Analysis**: Planetary surfaces require specialized slope calculations with variable baseline lengths to analyze terrain at different scales, particularly important for landing site selection.
+
+4. **Large-Scale Processing**: Processing global datasets of planetary bodies requires efficient batch operations and automation.
+
+## Who Should Use GDAL Scripts?
+
+<CardGroup cols={2}>
+  <Card title="Planetary Scientists" icon="user-astronaut">
+    Researchers analyzing data from lunar, martian, and other planetary missions
+  </Card>
+  
+  <Card title="Mission Planners" icon="satellite">
+    Teams selecting landing sites and planning rover traverses
+  </Card>
+  
+  <Card title="Cartographers" icon="map">
+    Specialists creating maps and mosaics of planetary surfaces
+  </Card>
+  
+  <Card title="Data Engineers" icon="database">
+    Engineers building pipelines for planetary data processing and distribution
+  </Card>
+</CardGroup>
+
+## Repository Structure
+
+The repository is organized into individual directories, each containing a specific script or set of related scripts:
+
+```
+GDAL_scripts/
+├── gdal2Coordinates/          # Coordinate conversion utilities
+├── gdal_baseline_slope/       # Terrain analysis tools
+├── gdal_clip2range/           # Data range clipping
+├── gdal2ISIS3/                # ISIS3 format conversion
+├── OGC_IAU2000_WKT_v2/       # IAU coordinate reference systems
+├── PDS4gdal/                  # PDS4 format tools
+├── gdal2PLY/                  # Point cloud generation
+└── [30+ additional tools]
+```
+
+Each directory typically contains:
+- Python script(s)
+- README.md with usage instructions
+- Example data or test files (where applicable)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Get started by installing GDAL and the required dependencies
+  </Card>
+  
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Try out practical examples with real scripts from the collection
+  </Card>
+</CardGroup>

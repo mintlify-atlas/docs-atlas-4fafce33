@@ -1,0 +1,208 @@
+---
+title: Baseline Slope Calculation
+description: Calculate specialized rover-optimized slope values from DEMs using various baseline lengths
+---
+
+## Overview
+
+The `gdal_baseline_slope.py` script calculates specialized slope values from Digital Elevation Models (DEMs) using variable baseline lengths. Unlike standard slope algorithms, this tool measures slope across specific pixel distances, making it particularly useful for rover mission planning where traversability depends on slope over specific ground distances.
+
+<Info>
+This tool was developed for Mars rover mission planning but can be applied to any planetary body with DEM data.
+</Info>
+
+## Installation
+
+Requires Anaconda Python environment with GDAL, NumPy, and SciPy:
+
+```bash
+conda install gdal numpy scipy
+```
+
+## Usage
+
+```bash
+python gdal_baseline_slope.py [-baseline INTEGER] [-ot Byte] [-crop] infile outfile.tif
+```
+
+### Parameters
+
+<ParamField path="-baseline" type="integer" optional>
+  Baseline length in pixels (e.g., 1, 2, 5). If omitted, uses Horn's method (standard 3x3 slope calculation).
+</ParamField>
+
+<ParamField path="-ot" type="string" optional>
+  Output data type. Set to `Byte` to scale 32-bit floating point slopes to 8-bit using: `DN = (Slope * 5) + 0.2`. A 32-bit version is still generated as `32bit_outfile.tif`.
+</ParamField>
+
+<ParamField path="-crop" type="boolean" optional>
+  Trim 1-5 pixels from image edges based on selected baseline amount.
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Input DEM file (any GDAL-readable format).
+</ParamField>
+
+<ParamField path="outfile" type="string" required>
+  Output slope file (GeoTIFF format).
+</ParamField>
+
+## Mathematical Method
+
+The baseline slope algorithm uses a moving window that samples only the corner pixels, measuring slope across a specified baseline distance.
+
+### Baseline = 2 Example
+
+Uses a 3×3 pixel window, sampling only the 4 corners:
+
+```
+[a, ·, b,
+ ·, ·, ·,
+ c, ·, d]
+```
+
+**Calculation:**
+
+```python
+dz_dx = ((b + d) - (a + c)) / (2.0 * baseline * x_cellsize)
+dz_dy = ((a + b) - (c + d)) / (2.0 * baseline * y_cellsize)
+slope = sqrt(dz_dx² + dz_dy²)
+slope_degrees = arctan(slope) * 180 / π
+```
+
+### Baseline = 5 Example
+
+Uses a 6×6 pixel window, sampling only the 4 corners:
+
+```
+[a, ·, ·, ·, ·, b,
+ ·, ·, ·, ·, ·, ·,
+ ·, ·, ·, ·, ·, ·,
+ ·, ·, ·, ·, ·, ·,
+ ·, ·, ·, ·, ·, ·,
+ c, ·, ·, ·, ·, d]
+```
+
+Same equation as above, with `baseline = 5`.
+
+### Horn's Method (Default)
+
+When no baseline is specified, the script uses Horn's Method (equivalent to `gdaldem slope`):
+
+```python
+# From 3×3 window:
+[a, b, c,
+ d, e, f,
+ g, h, i]
+
+dz_dx = ((c + 2*f + i) - (a + 2*d + g)) / (8 * x_cellsize)
+dz_dy = ((g + 2*h + i) - (a + 2*b + c)) / (8 * y_cellsize)
+```
+
+<Note>
+For more information on spatial filters, see the [ISIS3 Spatial Filters Guide](https://doi-usgs.github.io/ISIS3/The_Power_of_Spatial_Filters.html).
+</Note>
+
+## Examples
+
+### Basic Slope with Baseline = 5
+
+```bash
+python gdal_baseline_slope.py -baseline 5 input_DEM.tif slope_5m.tif
+```
+
+Calculates slope using a 5-pixel baseline.
+
+### 8-bit Output with Cropping
+
+```bash
+python gdal_baseline_slope.py -baseline 2 -ot Byte -crop DEM_20m.tif slope_2m_8bit.tif
+```
+
+Generates:
+- `32bit_slope_2m_8bit.tif` - Full 32-bit floating point slopes in degrees
+- `slope_2m_8bit.tif` - 8-bit scaled version (1-255)
+
+### HiRISE DEM Processing
+
+```bash
+python gdal_baseline_slope.py -baseline 5 -ot Byte -crop \
+  HiRISE_DEM_1m.tif rover_slope_5m.tif
+```
+
+<Info>
+**8-bit Scaling Formula:** The Byte output uses `DN = (Slope * 5) + 0.2`, which deliberately maps slopes >50° to DN value 255.
+</Info>
+
+### Standard Slope (Horn's Method)
+
+```bash
+python gdal_baseline_slope.py mars_DEM.tif standard_slope.tif
+```
+
+<Warning>
+This tool loads the full image into memory and can be slow for large DEMs.
+</Warning>
+
+## Output Files
+
+| Output Type | Description |
+|-------------|-------------|
+| 32-bit Float | Slope values in degrees (full precision) |
+| 8-bit Byte | Scaled slopes: DN = (Slope × 5) + 0.2, offset = -0.2, scale = 0.2 |
+| Cropped | Edge pixels removed based on baseline (prevents edge artifacts) |
+
+## Rover Mission Applications
+
+<Steps>
+  <Step title="Choose Baseline">
+    Select baseline based on rover wheelbase or critical distance:
+    - **Baseline = 1**: ~1m for small rovers
+    - **Baseline = 2**: ~2m for MER-class rovers  
+    - **Baseline = 5**: ~5m for larger vehicles or obstacle detection
+  </Step>
+  
+  <Step title="Process DEM">
+    Run `gdal_baseline_slope.py` with appropriate baseline and output options.
+  </Step>
+  
+  <Step title="Apply Thresholds">
+    Use slope output to identify traversable terrain:
+    - Safe: < 15°
+    - Caution: 15-25°
+    - Avoid: > 25° (typical rover limits)
+  </Step>
+  
+  <Step title="Generate Products">
+    Create visualization products with color ramps and integrate with path planning software.
+  </Step>
+</Steps>
+
+## Script Location
+
+```
+~/workspace/source/gdal_baseline_slope/gdal_baseline_slope.py
+```
+
+## Related Tools
+
+The repository includes helper scripts:
+- `gdal_hist.py` - Generate slope histograms
+- `slope_histogram_cumulative_graph.py` - Create cumulative slope distribution graphs
+- `gdal_HiRISE_RoverSlope_crop.pl` - Batch processing for HiRISE DEMs
+- `gdal_CTX_RoverSlope_crop.pl` - Batch processing for CTX DEMs
+
+## Performance Notes
+
+<Warning>
+**Memory Usage:** Current implementation loads the entire DEM into memory. For large files, ensure sufficient RAM is available.
+</Warning>
+
+- Processing speed depends on DEM size and baseline length
+- Larger baselines require larger filter windows but process similar times
+- Edge pixels are set to NoData when using `mode='constant'`
+
+## References
+
+- Kirk, R.L., et al. - Baseline slope calculation methodology for rover planning
+- [USGS Astrogeology GDAL Scripts](https://github.com/USGS-Astrogeology/GDAL_scripts)

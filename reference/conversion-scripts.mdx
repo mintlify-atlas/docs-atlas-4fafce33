@@ -1,0 +1,454 @@
+---
+title: Format Conversion Scripts
+description: Tools for converting between ISIS3, PLY, gores, XYZ, and shapefile formats
+---
+
+# Format Conversion Scripts
+
+Utilities for converting planetary geospatial data between various formats including ISIS3, 3D mesh formats, and specialized projections.
+
+## Astropedia_gdal2ISIS3.py
+
+Creates ISIS3-compatible cube files with detached labels from GDAL-supported images.
+
+### Usage
+
+```bash
+python Astropedia_gdal2ISIS3.py [options] input.tif output.cub
+```
+
+### Parameters
+
+<ParamField path="input.tif" type="string" required>
+  Input GDAL-supported georeferenced image
+</ParamField>
+
+<ParamField path="output.cub" type="string" required>
+  Output ISIS3 cube filename
+</ParamField>
+
+### Options
+
+<ParamField path="-debug" type="flag">
+  Print detailed image information during processing
+</ParamField>
+
+<ParamField path="-noimage" type="flag">
+  Generate only the label file (.lbl) without creating the image cube
+</ParamField>
+
+<ParamField path="-attach" type="flag">
+  Attach the label to the ISIS image using ISIS3 cubeatt (requires ISIS3 installation)
+</ParamField>
+
+<ParamField path="-force360" type="flag">
+  Force longitude domain to 0-360 instead of -180 to 180
+</ParamField>
+
+<ParamField path="-centerLon" type="float">
+  Override the center longitude value
+  ```bash
+  -centerLon 180
+  ```
+</ParamField>
+
+<ParamField path="-base" type="float">
+  Set the pixel base value for DN conversion
+  ```bash
+  -base 17374000
+  ```
+</ParamField>
+
+<ParamField path="-multiplier" type="float">
+  Set the pixel multiplier/scale value
+  ```bash
+  -multiplier 0.5
+  ```
+</ParamField>
+
+### Output Files
+
+The script creates multiple output files:
+- **output.cub** - Raw image data in ENVI format
+- **output.lbl** - ISIS3 detached label with metadata
+- **output.History.IsisCube** - Processing history
+
+### Supported Projections
+
+- Simple Cylindrical (GEOGCS)
+- Equirectangular
+- Sinusoidal
+- Transverse Mercator
+- Orthographic
+- Mercator
+- Polar Stereographic (North/South)
+
+### Example
+
+```bash
+# Basic conversion
+python Astropedia_gdal2ISIS3.py mars_mola.tif mars_mola.cub
+
+# With 360 longitude domain
+python Astropedia_gdal2ISIS3.py -force360 moon_dem.tif moon_dem.cub
+
+# Set custom base and multiplier
+python Astropedia_gdal2ISIS3.py -base 17374000 -multiplier 0.5 input.tif output.cub
+```
+
+### Data Types Supported
+
+- **Byte** - 8-bit unsigned integer
+- **Int16** - 16-bit signed integer
+- **UInt16** - 16-bit unsigned integer
+- **Float32** - 32-bit floating point
+- **Float64** - Converted to Float32
+
+<Warning>
+Float32/Real types do not use base and multiplier in ISIS3. Use the ISIS `fx` command to apply offsets to floating-point data.
+</Warning>
+
+---
+
+## gdal2PLY.py
+
+Converts digital elevation models (DEMs) to PLY mesh format for 3D visualization.
+
+### Usage
+
+```bash
+python gdal2PLY.py input_DEM.tif output_mesh.ply
+```
+
+### Parameters
+
+<ParamField path="input_DEM.tif" type="string" required>
+  Input DEM in any GDAL-supported format
+</ParamField>
+
+<ParamField path="output_mesh.ply" type="string" required>
+  Output PLY mesh file (binary format)
+</ParamField>
+
+### Features
+
+- Creates binary PLY format for efficient storage
+- Generates triangulated mesh from DEM grid
+- Preserves X, Y, Z coordinates
+- Suitable for import into 3D visualization software
+
+### NoData Handling
+
+<Note>
+The script does not currently handle NoData values. Use this workaround:
+
+1. Find the minimum elevation:
+   ```bash
+   gdalinfo -mm input_DEM.tif
+   ```
+
+2. Set NoData to a value below minimum and resample:
+   ```bash
+   gdalwarp -dstnodata -2791 -tr 10 10 -r bilinear input_DEM.tif output_DEM_10m.tif
+   ```
+
+3. Run gdal2PLY on the processed file
+</Note>
+
+### Example
+
+```bash
+# Prepare DEM with NoData handling
+gdalwarp -dstnodata -2791 -tr 10 10 -r bilinear raw_dem.tif dem_10m_nodata.tif
+
+# Convert to PLY
+python gdal2PLY.py dem_10m_nodata.tif terrain_mesh.ply
+```
+
+### Output Format
+
+PLY format includes:
+- Vertex positions (x, y, z)
+- Triangle face definitions
+- Binary encoding for efficiency
+
+---
+
+## gdal2gores.py
+
+Remaps Simple Cylindrical projected images into gore projections for printing and mounting on spheres.
+
+### Usage
+
+```bash
+python gdal2gores.py -ng number_of_gores infile outfile
+```
+
+### Parameters
+
+<ParamField path="-ng" type="integer" required>
+  Number of gores to generate (default: 8)
+  ```bash
+  -ng 12  # Create 12 gores
+  ```
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Input Simple Cylindrical map projection image
+</ParamField>
+
+<ParamField path="outfile" type="string" required>
+  Output gore image (GeoTIFF format)
+</ParamField>
+
+<ParamField path="-q" type="flag">
+  Quiet mode - suppress progress output
+</ParamField>
+
+### How It Works
+
+1. Divides the input image into N vertical strips (gores)
+2. Applies cosine warping to each gore based on latitude
+3. Creates output suitable for cutting and mounting on spherical objects
+
+### Example
+
+```bash
+# Create 8 gores (default)
+python gdal2gores.py -ng 8 mars_map.tif mars_gores.tif
+
+# Create 12 gores for finer detail
+python gdal2gores.py -ng 12 moon_map.tif moon_gores.tif
+```
+
+### Use Cases
+
+- Creating physical globe models
+- Educational materials
+- Art and craft projects with planetary maps
+- Tennis ball or baseball sphere mapping
+
+<Note>
+Input image must be in Simple Cylindrical projection. Use `gdalwarp` to reproject if necessary.
+</Note>
+
+---
+
+## gdal2xyz_geocentricSpace.py
+
+Converts elevation DEMs to geocentric (body-fixed) XYZ ASCII coordinates.
+
+### Usage
+
+```bash
+python gdal2xyz_geocentricSpace.py [options] srcfile [dstfile]
+```
+
+### Parameters
+
+<ParamField path="srcfile" type="string" required>
+  Input elevation DEM (elevation values in meters)
+</ParamField>
+
+<ParamField path="dstfile" type="string">
+  Output ASCII file (defaults to stdout)
+</ParamField>
+
+### Options
+
+<ParamField path="-skip" type="integer">
+  Sampling factor to skip pixels (default: 1)
+  ```bash
+  -skip 10  # Sample every 10th pixel
+  ```
+</ParamField>
+
+<ParamField path="-radius" type="float">
+  Body radius in meters (default: 1737400.0 for Moon)
+  ```bash
+  -radius 3396190  # Mars radius
+  ```
+</ParamField>
+
+<ParamField path="-radiusBand" type="integer">
+  Band number containing variable radius values
+  ```bash
+  -radiusBand 2
+  ```
+</ParamField>
+
+<ParamField path="-latBand" type="integer">
+  Band number containing latitude values
+  ```bash
+  -latBand 2
+  ```
+</ParamField>
+
+<ParamField path="-lonBand" type="integer">
+  Band number containing longitude values
+  ```bash
+  -lonBand 3
+  ```
+</ParamField>
+
+<ParamField path="-band" type="integer">
+  Elevation band number (default: 1)
+  ```bash
+  -band 1
+  ```
+</ParamField>
+
+<ParamField path="-srcwin" type="xoff yoff width height">
+  Process only a subset window
+  ```bash
+  -srcwin 0 0 1000 1000
+  ```
+</ParamField>
+
+<ParamField path="-addheader" type="flag">
+  Add CSV header line to output
+</ParamField>
+
+<ParamField path="-printLatLon" type="flag">
+  Output Lon,Lat,Elevation instead of X,Y,Z
+</ParamField>
+
+### Output Format
+
+Default output (body-fixed coordinates):
+```
+X,Y,Z
+1234567.890,2345678.901,3456789.012
+...
+```
+
+With `-printLatLon`:
+```
+Lon,Lat,Elevation
+-122.456,37.789,1234.56
+...
+```
+
+### Coordinate Calculation
+
+For spherical bodies:
+```python
+X = (radius + elevation) * cos(lat) * cos(lon)
+Y = (radius + elevation) * cos(lat) * sin(lon)
+Z = (radius + elevation) * sin(lat)
+```
+
+### Example
+
+```bash
+# Moon DEM to XYZ with default radius
+python gdal2xyz_geocentricSpace.py -addheader moon_dem.tif moon_xyz.csv
+
+# Mars DEM with custom radius, every 10th pixel
+python gdal2xyz_geocentricSpace.py -radius 3396190 -skip 10 mars_dem.tif mars_xyz.csv
+
+# Use lat/lon from bands instead of projection
+python gdal2xyz_geocentricSpace.py -latBand 2 -lonBand 3 multiband.tif output.csv
+```
+
+### Default Radii
+
+- Moon: 1,737,400 m
+- Mars: 3,396,190 m (use `-radius` option)
+- Other bodies: specify with `-radius`
+
+---
+
+## AsterMeta2Shapefile.py
+
+Converts a directory of ASTER metadata (.meta) files into a polygon shapefile.
+
+### Usage
+
+```bash
+python AsterMeta2Shapefile.py outfile.shp
+```
+
+### Parameters
+
+<ParamField path="outfile.shp" type="string" required>
+  Output shapefile name
+</ParamField>
+
+### How It Works
+
+1. Searches current directory for all `*.meta` files
+2. Extracts corner coordinates from each metadata file
+3. Creates polygon features with ASTER scene ID as attribute
+4. Outputs WGS84 geographic coordinate system shapefile
+
+### Metadata File Format
+
+Expects ASTER metadata files with format:
+```
+ID=AST_L1B_00301012000010829
+ULLat=37.123456
+ULLong=-122.123456
+URLat=37.234567
+URLong=-122.012345
+LRLat=37.012345
+LRLong=-122.234567
+LLLat=37.123456
+LLLong=-122.345678
+```
+
+### Example
+
+```bash
+# Run in directory containing *.meta files
+python AsterMeta2Shapefile.py aster_coverage.shp
+```
+
+**Output:**
+```
+complete. 150 files processed
+```
+
+### Output Attributes
+
+- **Name** - ASTER scene identifier
+- **Geometry** - Polygon footprint
+
+### Use Cases
+
+- Creating ASTER scene coverage maps
+- Planning data acquisitions
+- Visualizing available data in GIS
+- Filtering scenes by location
+
+<Warning>
+Script will exit if output shapefile already exists. Remove existing file first.
+</Warning>
+
+## Requirements
+
+### Common Dependencies
+
+All conversion scripts require:
+- Python 2.7+ or Python 3.x (script-dependent)
+- GDAL/OGR Python bindings
+
+### Additional Dependencies
+
+- **gdal2PLY.py**: NumPy
+- **gdal2xyz_geocentricSpace.py**: NumPy/Numeric
+- **isis3_to_pds4**: pvl library
+
+## Installation
+
+```bash
+# Install GDAL and NumPy
+conda install -c conda-forge gdal numpy
+
+# For PDS4 conversion (pvl library)
+pip install pvl
+```
+
+## Author
+
+Developed by Trent Hare and contributors at USGS Astrogeology Science Center.

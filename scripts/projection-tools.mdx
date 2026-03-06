@@ -1,0 +1,375 @@
+---
+title: Projection Manipulation Tools
+description: Modify projection parameters without resampling image data
+icon: compass
+---
+
+Tools for changing projection parameters (center longitude, standard parallel) without resampling, preserving original pixel values while updating geospatial registration.
+
+## Overview
+
+These utilities modify the geospatial metadata and registration of equirectangular (and similar cylindrical) projections **without** resampling image data. This approach:
+
+- ✅ Preserves original pixel values exactly
+- ✅ Avoids interpolation artifacts
+- ✅ Executes rapidly (no pixel processing)
+- ⚠️ Only works for specific projection types
+
+<Warning>
+These tools should **only** be used with Simple Cylindrical, Equirectangular, and possibly Mercator projections. Using them with other projections will produce geometrically incorrect results.
+</Warning>
+
+## NewCenterLon_Equi.py
+
+Changes the center longitude (central meridian) without reprojecting.
+
+### Usage
+
+<ParamField path="-of" type="string" default="GTiff">
+  Output format (GDAL driver name: GTiff, HFA, ISIS3, etc.)
+</ParamField>
+
+<ParamField path="-clon" type="float" required>
+  New center longitude value in decimal degrees
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Path to input raster file
+</ParamField>
+
+<ParamField path="outfile" type="string" required>
+  Path to output raster file
+</ParamField>
+
+**Syntax:**
+
+```bash
+python NewCenterLon_Equi.py [-of format] -clon newClon infile outfile
+```
+
+### Examples
+
+<CodeGroup>
+
+```bash Change to 0° Center
+python NewCenterLon_Equi.py -clon 0 global_180.tif global_0.tif
+```
+
+```bash Change to 180° Center  
+python NewCenterLon_Equi.py -clon 180 global_0.tif global_180.tif
+```
+
+```bash Custom Format
+python NewCenterLon_Equi.py -of HFA -clon 90 input.tif output.img
+```
+
+```bash Mars Global Map
+python NewCenterLon_Equi.py -clon 0 -of ISIS3 mars_global_clon180.cub mars_global_clon0.cub
+```
+
+</CodeGroup>
+
+### How It Works
+
+<Steps>
+  <Step title="Read projection information">
+    Extract the current spatial reference system and geotransformation matrix
+  </Step>
+  
+  <Step title="Calculate longitude offset">
+    Determine the shift in X coordinates based on center longitude change:
+    ```python
+    delta_clon = new_clon - old_clon
+    ```
+  </Step>
+  
+  <Step title="Update geotransform">
+    Modify the X origin in the geotransformation matrix without touching pixel data
+  </Step>
+  
+  <Step title="Update projection WKT">
+    Change the `central_meridian` parameter in the projection definition
+  </Step>
+  
+  <Step title="Write output">
+    Copy pixel data unchanged, apply new geotransform and projection
+  </Step>
+</Steps>
+
+### Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Global Map Conventions" icon="earth-americas">
+    Convert between -180° to 180° and 0° to 360° longitude systems
+  </Card>
+  
+  <Card title="Seam Repositioning" icon="scissors">
+    Move the map edge seam to a different longitude
+  </Card>
+  
+  <Card title="Regional Centering" icon="location-crosshairs">
+    Center the map on a specific feature or region of interest
+  </Card>
+  
+  <Card title="Multi-Body Data" icon="planet-ringed">
+    Standardize center longitude across planetary datasets
+  </Card>
+</CardGroup>
+
+## NewStandardPar_Equi.py
+
+Changes the standard parallel (latitude of true scale) without reprojecting.
+
+### Usage
+
+<ParamField path="-of" type="string" default="GTiff">
+  Output format (GDAL driver name)
+</ParamField>
+
+<ParamField path="-clat" type="float" required>
+  New standard parallel latitude in decimal degrees
+</ParamField>
+
+<ParamField path="infile" type="string" required>
+  Path to input raster file
+</ParamField>
+
+<ParamField path="outfile" type="string" required>
+  Path to output raster file
+</ParamField>
+
+**Syntax:**
+
+```bash
+python NewStandardPar_Equi.py [-of format] -clat newClat infile outfile
+```
+
+### Examples
+
+<CodeGroup>
+
+```bash Mid-Latitude Standard Parallel
+python NewStandardPar_Equi.py -clat 45 equator_scale.tif midlat_scale.tif
+```
+
+```bash Equator True Scale
+python NewStandardPar_Equi.py -clat 0 polar_scale.tif equator_scale.tif
+```
+
+```bash Planetary Mosaic
+python NewStandardPar_Equi.py -clat 30 -of ISIS3 input.cub output.cub
+```
+
+</CodeGroup>
+
+### How It Works
+
+<Steps>
+  <Step title="Calculate scale factor">
+    Determine how X pixel spacing changes with new latitude of true scale:
+    ```python
+    scale_factor = cos(new_clat) / cos(old_clat)
+    ```
+  </Step>
+  
+  <Step title="Adjust X resolution">
+    Modify geotransform X pixel size while keeping Y resolution constant
+  </Step>
+  
+  <Step title="Update projection definition">
+    Change `standard_parallel_1` or `latitude_of_origin` parameter
+  </Step>
+  
+  <Step title="Write output">
+    Copy pixel data with updated geotransform (rectangular pixels possible)
+  </Step>
+</Steps>
+
+<Info>
+**Result:** The output may have **rectangular pixels** (different X and Y resolution) because only the X spacing is scaled.
+</Info>
+
+### Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Split Global Mosaics" icon="grid">
+    Prepare latitude bands with appropriate scale for each zone
+  </Card>
+  
+  <Card title="Regional Processing" icon="map-location-dot">
+    Optimize scale distortion for specific latitude ranges
+  </Card>
+  
+  <Card title="Conformality Adjustment" icon="ruler">
+    Match scale characteristics to analysis requirements
+  </Card>
+  
+  <Card title="Legacy Data Correction" icon="wrench">
+    Update old maps with incorrect standard parallel metadata
+  </Card>
+</CardGroup>
+
+### Example Workflow: Global Lunar Split
+
+The repository includes an example for splitting a global lunar map into 5-degree latitude bands:
+
+**Files:**
+- `global_lunar_split_example/NewStandardPar_Equi.py`
+- `global_lunar_split_example/split_equi_5deg_lat_bands.py`
+
+**Process:**
+
+<Steps>
+  <Step title="Split into latitude bands">
+    Use `gdal_translate` to extract 5° latitude strips
+  </Step>
+  
+  <Step title="Adjust standard parallel">
+    Apply `NewStandardPar_Equi.py` with the central latitude of each band
+  </Step>
+  
+  <Step title="Result">
+    Each band has minimal scale distortion at its central latitude
+  </Step>
+</Steps>
+
+## Technical Background
+
+### Equirectangular Projection
+
+Also known as Plate Carrée or Simple Cylindrical, this projection maps:
+
+```
+X = R * (λ - λ₀) * cos(φ₁)
+Y = R * φ
+```
+
+Where:
+- `λ` = longitude
+- `λ₀` = center longitude (central meridian)
+- `φ` = latitude  
+- `φ₁` = standard parallel (latitude of true scale)
+- `R` = radius of the sphere/ellipsoid
+
+### Why No Resampling Works
+
+<Accordion title="Mathematical Explanation" icon="calculator">
+Equirectangular projection has a **linear relationship** between pixel coordinates and ground coordinates. Changing the center longitude simply **shifts** all X coordinates by a constant amount:
+
+```python
+X_new = X_old + ΔX
+where ΔX = R * Δλ₀ * cos(φ₁)
+```
+
+Similarly, changing standard parallel **scales** X coordinates uniformly:
+
+```python
+X_new = X_old * (cos(φ₁_new) / cos(φ₁_old))
+```
+
+Because the pixel grid doesn't need to be warped or rotated, we can simply update the geotransformation coefficients.
+</Accordion>
+
+### Geotransformation Update
+
+**Standard GDAL geotransform:**
+
+```python
+geomatrix = [
+    ulx,    # [0] Upper-left X coordinate
+    xres,   # [1] X pixel resolution  
+    0,      # [2] X rotation (typically 0)
+    uly,    # [3] Upper-left Y coordinate
+    0,      # [4] Y rotation (typically 0)
+    yres    # [5] Y pixel resolution (negative for north-up)
+]
+```
+
+**Center longitude change:** Modify `geomatrix[0]` (ulx)  
+**Standard parallel change:** Modify `geomatrix[1]` (xres)
+
+## Requirements
+
+<CodeGroup>
+
+```bash Python Installation
+pip install gdal
+```
+
+```bash Verify GDAL
+python -c "from osgeo import gdal; print(gdal.__version__)"
+```
+
+</CodeGroup>
+
+Both scripts support:
+- Modern GDAL Python bindings: `from osgeo import gdal`
+- Legacy bindings: `import gdal`
+
+## Supported Output Formats
+
+Common GDAL format codes for `-of` parameter:
+
+<CardGroup cols={3}>
+  <Card title="GTiff" icon="file">
+    GeoTIFF (default)
+  </Card>
+  
+  <Card title="HFA" icon="file">
+    Erdas Imagine .img
+  </Card>
+  
+  <Card title="ISIS3" icon="file">
+    USGS ISIS3 cube
+  </Card>
+  
+  <Card title="ENVI" icon="file">
+    ENVI .dat + .hdr
+  </Card>
+  
+  <Card title="AAIGrid" icon="file">
+    Arc/Info ASCII Grid
+  </Card>
+  
+  <Card title="JPEG" icon="file">
+    JPEG (loses georeferencing)
+  </Card>
+</CardGroup>
+
+See `gdal_translate --formats` for full list.
+
+## Validation
+
+After running these scripts, verify the output:
+
+<Steps>
+  <Step title="Check projection parameters">
+    ```bash
+    gdalinfo output.tif | grep -A 10 "Coordinate System"
+    ```
+  </Step>
+  
+  <Step title="Verify corner coordinates">
+    ```bash
+    gdalinfo output.tif | grep -A 4 "Corner Coordinates"
+    ```
+  </Step>
+  
+  <Step title="Test coordinate transformation">
+    Use `gdallocationinfo` to verify pixel-to-ground coordinate mapping
+  </Step>
+  
+  <Step title="Visual inspection">
+    Open in QGIS or other GIS software with graticule overlay
+  </Step>
+</Steps>
+
+## Credits
+
+**Author:** Trent Hare, USGS  
+**Based on:** tolatlong.py by Andrey Kiselev (dron@remotesensing.org)  
+**Project:** Lunar Mapping and Modeling Project (LMMP)
+
+<Note>
+These scripts were developed for planetary mapping workflows but work equally well for terrestrial data in appropriate projections.
+</Note>

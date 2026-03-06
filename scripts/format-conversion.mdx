@@ -1,0 +1,280 @@
+---
+title: Format Conversion Tools
+description: Convert GDAL rasters to ISIS3, PDS, PLY, and other specialized formats
+icon: arrows-rotate
+---
+
+Format conversion utilities for transforming GDAL-supported rasters into specialized planetary science and 3D formats.
+
+## Overview
+
+These tools enable conversion from standard geospatial formats (GeoTIFF, etc.) to specialized formats used in planetary science, 3D visualization, and archival systems.
+
+## ISIS3 Conversion
+
+### Astropedia_gdal2ISIS3.py
+
+Creates ISIS3-compatible cube files (raw with ISIS3 label) from any GDAL-supported image.
+
+<ParamField path="infile" type="string" required>
+  Path to input GDAL-supported raster
+</ParamField>
+
+<ParamField path="outfile" type="string" required>
+  Path to output ISIS3 cube file (.cub)
+</ParamField>
+
+<ParamField path="-debug" type="flag" default="false">
+  Print detailed image information during conversion
+</ParamField>
+
+<ParamField path="-noimage" type="flag" default="false">
+  Generate only the .lbl label file without the image data
+</ParamField>
+
+<ParamField path="-attach" type="flag" default="false">
+  Attach the label to the ISIS image (requires ISIS3 installation)
+</ParamField>
+
+<ParamField path="-force360" type="flag" default="false">
+  Force longitude system to 360-degree domain
+</ParamField>
+
+<ParamField path="-centerLon" type="float">
+  Override the center longitude value
+</ParamField>
+
+<ParamField path="-base" type="float">
+  Set the base offset for pixel values
+</ParamField>
+
+<ParamField path="-multiplier" type="float">
+  Set the scaling multiplier for pixel values
+</ParamField>
+
+**Usage:**
+
+```bash
+python Astropedia_gdal2ISIS3.py [options] infile output.cub
+```
+
+**Examples:**
+
+<CodeGroup>
+
+```bash Basic Conversion
+python Astropedia_gdal2ISIS3.py mars_dem.tif mars_dem.cub
+```
+
+```bash Label Only
+python Astropedia_gdal2ISIS3.py -noimage lunar_mosaic.tif lunar_mosaic.lbl
+```
+
+```bash Custom Center Longitude
+python Astropedia_gdal2ISIS3.py -centerLon 180 -force360 global.tif global.cub
+```
+
+```bash With Scaling
+python Astropedia_gdal2ISIS3.py -base 1737400 -multiplier 0.5 elevation.tif elevation.cub
+```
+
+</CodeGroup>
+
+<Warning>
+Currently works only for a limited set of images. Verify output for your specific use case.
+</Warning>
+
+### LMMP_gdal2PDS.py
+
+Simple brute-force script to convert from GDAL-supported formats to PDS3 images with labels.
+
+**Purpose:** Generate PDS3-compliant image files for planetary data archiving.
+
+**Usage:**
+
+```bash
+python LMMP_gdal2PDS.py infile outfile.img
+```
+
+<Info>
+PDS3 (Planetary Data System version 3) is a NASA standard for archiving and distributing planetary science data.
+</Info>
+
+## 3D Mesh Conversion
+
+### gdal2PLY.py
+
+Generate triangulated 3D mesh (PLY format) from digital elevation models (DEMs).
+
+<ParamField path="inputfile" type="string" required>
+  Path to input DEM raster
+</ParamField>
+
+<ParamField path="outputfile" type="string" required>
+  Path to output .ply mesh file
+</ParamField>
+
+**Usage:**
+
+```bash
+python gdal2PLY.py inputfile.tif outputfile.ply
+```
+
+**Example:**
+
+```bash
+python gdal2PLY.py crater_dem_10m.tif crater_mesh.ply
+```
+
+### How It Works
+
+<Steps>
+  <Step title="Read DEM elevation data">
+    Load the entire raster into a NumPy array
+  </Step>
+  
+  <Step title="Create vertex array">
+    Generate 3D vertices (X, Y, Z) for each pixel using geotransformation
+  </Step>
+  
+  <Step title="Build triangle index">
+    Create face indices connecting adjacent vertices in a triangulated mesh
+  </Step>
+  
+  <Step title="Write PLY file">
+    Export vertices and faces in binary PLY format for efficient storage
+  </Step>
+</Steps>
+
+### NoData Handling
+
+<Warning>
+The script does **not** automatically handle NoData values. Use this workaround:
+</Warning>
+
+<Steps>
+  <Step title="Find minimum elevation">
+    ```bash
+    gdalinfo -mm input_DEM.tif
+    ```
+    Example output: `Computed Min/Max=-2790.594, 1234.567`
+  </Step>
+  
+  <Step title="Set NoData to safe value">
+    Round down from minimum and optionally resample:
+    ```bash
+    gdalwarp -dstnodata -2791 -tr 10 10 -r bilinear \
+      input_DEM.tif output_DEM_10m_nodata.tif
+    ```
+  </Step>
+  
+  <Step title="Convert to PLY">
+    ```bash
+    python gdal2PLY.py output_DEM_10m_nodata.tif output_mesh.ply
+    ```
+  </Step>
+</Steps>
+
+### PLY Format
+
+The output PLY (Polygon File Format) is a widely-supported 3D mesh format:
+
+- **Binary format:** Efficient storage (default)
+- **Contains:** Vertex positions (X, Y, Z) and triangle face definitions
+- **Compatible with:** MeshLab, Blender, CloudCompare, and many 3D viewers
+
+## Requirements
+
+<Tabs>
+  <Tab title="ISIS3 Scripts">
+    ```bash
+    pip install gdal
+    # Optional: ISIS3 for -attach flag
+    ```
+  </Tab>
+  
+  <Tab title="PLY Script">
+    ```bash
+    pip install gdal numpy
+    # Recommended: Anaconda distribution
+    conda install gdal numpy
+    ```
+  </Tab>
+</Tabs>
+
+## Output File Structures
+
+### ISIS3 Cube (.cub)
+
+ISIS3 cubes consist of:
+
+<CardGroup cols={2}>
+  <Card title="Label Section" icon="tag">
+    PVL (Parameter Value Language) metadata describing:
+    - Image dimensions and data type
+    - Projection and coordinate system
+    - Pixel scaling (base + multiplier)
+    - Processing history
+  </Card>
+  
+  <Card title="Image Data" icon="image">
+    Raw binary raster data:
+    - Tile or band-sequential organization
+    - Native byte order
+    - Optional compression
+  </Card>
+</CardGroup>
+
+### PLY Mesh
+
+```
+ply
+format binary_little_endian 1.0
+element vertex 262144
+property float x
+property float y
+property float z
+element face 261121
+property list int int vertex_index
+end_header
+[binary vertex data]
+[binary face index data]
+```
+
+## Use Cases
+
+<CardGroup cols={3}>
+  <Card title="ISIS3 Processing" icon="satellite">
+    Ingest data into USGS ISIS3 for planetary image processing pipelines
+  </Card>
+  
+  <Card title="PDS Archiving" icon="archive">
+    Prepare datasets for submission to NASA's Planetary Data System
+  </Card>
+  
+  <Card title="3D Visualization" icon="cube">
+    Create interactive 3D terrain meshes from elevation data
+  </Card>
+  
+  <Card title="Data Sharing" icon="share-nodes">
+    Convert to formats compatible with legacy planetary software
+  </Card>
+  
+  <Card title="Quality Assurance" icon="microscope">
+    Inspect DEMs in 3D mesh viewers for artifacts and anomalies
+  </Card>
+  
+  <Card title="Web Publishing" icon="globe">
+    Generate lightweight meshes for web-based 3D viewers
+  </Card>
+</CardGroup>
+
+## Credits
+
+- **ISIS3 scripts:** Trent Hare, USGS (thare@usgs.gov)
+- **gdal2PLY.py:** Based on work by Jake (GIS StackExchange), modified by Trent Hare
+- Original gdalinfo.py authors: Even Rouault, Frank Warmerdam
+
+<Note>
+These tools are provided as-is for planetary science workflows. Always validate output before use in production systems.
+</Note>

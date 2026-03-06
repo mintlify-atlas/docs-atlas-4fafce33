@@ -1,97 +1,129 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "GDAL Scripts"
+description: "Collection of GDAL Python utilities for planetary and astrogeology data processing"
 ---
 
-## Setting up
+# GDAL Scripts for Planetary Data
 
-Get your documentation site up and running in minutes.
+A comprehensive collection of GDAL-based Python utilities and tools developed by the USGS Astrogeology Science Center for processing planetary imagery and geospatial data.
+
+## Overview
+
+GDAL Scripts provides specialized tools for working with planetary body data from Mars, Moon, and other celestial bodies. These utilities extend GDAL's capabilities with domain-specific functionality for coordinate transformations, format conversions, and planetary-specific processing tasks.
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get started with GDAL Scripts in minutes
+  </Card>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Install GDAL and the required dependencies
+  </Card>
+  <Card
+    title="Coordinate Conversion"
+    icon="map-location-dot"
+    href="/scripts/coordinate-conversion"
+  >
+    Transform between pixel, meter, and lat/lon coordinates
+  </Card>
+  <Card
+    title="Script Reference"
+    icon="book"
+    href="/reference/overview"
+  >
+    Complete reference for all available scripts
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<CardGroup cols={3}>
+  <Card
+    title="Coordinate Transformations"
+    icon="arrows-rotate"
+  >
+    Convert between pixel, meters, and lat/lon coordinate systems
+  </Card>
+  <Card
+    title="IAU Projections"
+    icon="globe"
+  >
+    Planetary body projection definitions using IAU2000/2009/2015 standards
+  </Card>
+  <Card
+    title="Rover Slope Analysis"
+    icon="chart-line"
+  >
+    Specialized baseline slope calculations for Mars rover planning
+  </Card>
+  <Card
+    title="PDS4 Conversion"
+    icon="file-export"
+  >
+    Convert ISIS3 cubes to PDS4 format with metadata
+  </Card>
+  <Card
+    title="3D Exports"
+    icon="cube"
+  >
+    Export DEMs to PLY, OBJ, and XYZ geocentric formats
+  </Card>
+  <Card
+    title="Web Mapping"
+    icon="earth-americas"
+  >
+    Integration with WMS services for planetary data
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Mars Rover Mission Planning">
+    Calculate slope maps with variable baselines for rover traversability analysis. Process HiRISE imagery and generate terrain products for mission operations.
+  </Accordion>
+  <Accordion title="Planetary Coordinate Conversions">
+    Convert pixel coordinates to geographic coordinates for any planetary body. Transform between different coordinate systems and projections.
+  </Accordion>
+  <Accordion title="Data Archive Preparation">
+    Generate PDS4-compliant data products from ISIS3 cubes. Create FGDC metadata for planetary datasets.
+  </Accordion>
+  <Accordion title="3D Visualization">
+    Export planetary DEMs to 3D formats for use in visualization software. Generate geocentric XYZ coordinates for body-fixed reference frames.
+  </Accordion>
+</AccordionGroup>
+
+## Getting Started
+
+<Steps>
+  <Step title="Install GDAL">
+    Install GDAL with Python bindings. We recommend using Anaconda: `conda install gdal`
+  </Step>
+  <Step title="Clone the Repository">
+    ```bash
+    git clone https://github.com/thareUSGS/GDAL_scripts.git
+    cd GDAL_scripts
+    ```
+  </Step>
+  <Step title="Run a Script">
+    Most scripts are standalone and can be run directly:
+    ```bash
+    python gdal2Coordinates/pixel2longlat.py sample line input.tif
+    ```
+  </Step>
+</Steps>
 
 <Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
+  title="View on GitHub"
+  icon="github"
+  href="https://github.com/thareUSGS/GDAL_scripts"
 >
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
+  Explore the source code and contribute
 </Card>

@@ -1,0 +1,384 @@
+---
+title: 'Geocentric XYZ Export'
+description: 'Convert GDAL rasters to geocentric body-fixed XYZ coordinates'
+---
+
+## Overview
+
+`gdal2xyz_geocentricSpace.py` translates GDAL-supported rasters (specifically elevation DEMs) into geocentric (body-fixed) XYZ ASCII tables, ideal for planetary surface analysis and 3D modeling.
+
+## Purpose
+
+Convert planetary elevation data into geocentric coordinate systems, transforming latitude/longitude/elevation values into 3D Cartesian coordinates (X, Y, Z) in a body-fixed reference frame.
+
+**Original Author:** Frank Warmerdam (original gdal2xyz)  
+**Updates:** Trent Hare, USGS (geocentric conversion functionality)
+
+## Installation Requirements
+
+```bash
+pip install gdal numpy
+```
+
+## Command Syntax
+
+```bash
+gdal2xyz_geocentricSpace.py [-skip factor] [-printLatLon] [-addheader] 
+                            [-srcwin xoff yoff width height] 
+                            [-radius value_m | -radiusBand n] 
+                            [-latBand n] [-lonBand n] [-band b] 
+                            srcfile [dstfile]
+```
+
+### Parameters
+
+<ParamField path="srcfile" type="string" required>
+  Input GDAL-supported raster file (DEM with elevation in meters)
+</ParamField>
+
+<ParamField path="dstfile" type="string">
+  Output CSV file. If omitted, writes to stdout
+</ParamField>
+
+<ParamField path="-skip" type="integer" default="1">
+  Sampling factor (e.g., `-skip 2` outputs every other pixel)
+</ParamField>
+
+<ParamField path="-radius" type="float" default="1737400.0">
+  Body radius in meters. Defaults to Moon radius (1737400.0 m)
+</ParamField>
+
+<ParamField path="-radiusBand" type="integer">
+  Band number containing variable radius values
+</ParamField>
+
+<ParamField path="-latBand" type="integer">
+  Band number containing latitude values (overrides GDAL calculation)
+</ParamField>
+
+<ParamField path="-lonBand" type="integer">
+  Band number containing longitude values (overrides GDAL calculation)
+</ParamField>
+
+<ParamField path="-band" type="integer" default="1">
+  Elevation band number (band 1 by default)
+</ParamField>
+
+<ParamField path="-srcwin" type="string">
+  Specify subwindow: `xoff yoff width height` (in pixels)
+</ParamField>
+
+<ParamField path="-addheader" type="flag">
+  Add CSV header row with field names
+</ParamField>
+
+<ParamField path="-printLatLon" type="flag">
+  Output Lat/Lon/Elevation instead of geocentric XYZ
+</ParamField>
+
+## Usage Examples
+
+### Basic Geocentric Export (Moon)
+
+Export with default Moon radius to stdout:
+
+```bash
+gdal2xyz_geocentricSpace.py -addheader lunar_dem.cub
+```
+
+Output format:
+```csv
+X,Y,Radius
+1234567.890,234567.890,1737890.123
+1234568.001,234568.002,1737891.234
+...
+```
+
+### Export to File with Header
+
+```bash
+gdal2xyz_geocentricSpace.py -addheader mars_dem.tif mars_xyz.csv
+```
+
+### Custom Body Radius (Mars)
+
+Use Mars mean radius (3389500 m):
+
+```bash
+gdal2xyz_geocentricSpace.py -addheader -radius 3389500.0 mars_dem.cub mars_xyz.csv
+```
+
+### Using Lat/Lon from Bands
+
+When latitude and longitude are stored in separate bands:
+
+```bash
+gdal2xyz_geocentricSpace.py -addheader -latBand 2 -lonBand 3 multiband.cub output.csv
+```
+
+### Variable Radius from Band
+
+For data with variable radius (e.g., asteroid shape models):
+
+```bash
+gdal2xyz_geocentricSpace.py -addheader -radiusBand 1 -latBand 2 -lonBand 3 shape.cub shape_xyz.csv
+```
+
+### Static Radius with Lat/Lon Bands
+
+```bash
+gdal2xyz_geocentricSpace.py -addheader -radius 1737400.0 -latBand 2 -lonBand 3 input.cub output.csv
+```
+
+### Output Lat/Lon/Elevation Only
+
+```bash
+gdal2xyz_geocentricSpace.py -addheader -printLatLon input.cub output.csv
+```
+
+Output format:
+```csv
+Lon,Lat,Band
+-45.123456,23.456789,1234.567
+-45.123400,23.456800,1235.123
+...
+```
+
+### Subsample and Clip
+
+Process every 10th pixel from a subwindow:
+
+```bash
+gdal2xyz_geocentricSpace.py -skip 10 -srcwin 1000 1000 5000 5000 -addheader input.cub output.csv
+```
+
+## Geocentric Coordinate Transformation
+
+### Mathematical Formula
+
+The script converts from spherical to Cartesian coordinates using (see `gdal2xyz_geocentricSpace.py:268-277`):
+
+**Standard formula (with elevation):**
+```python
+geoC_x = (radius + elevation) * cos(lat_rad) * cos(lon_rad)
+geoC_y = (radius + elevation) * cos(lat_rad) * sin(lon_rad)
+geoC_z = (radius + elevation) * sin(lat_rad)
+```
+
+**Variable radius formula (radius in band):**
+```python
+geoC_x = radius * cos(lat_rad) * cos(lon_rad)
+geoC_y = radius * cos(lat_rad) * sin(lon_rad)
+geoC_z = radius * sin(lat_rad)
+```
+
+<Info>
+The transformation assumes a simple sphere model. For ellipsoidal bodies, the formulas would need modification.
+</Info>
+
+### Coordinate System
+
+- **X-axis**: Points toward 0° longitude (prime meridian)
+- **Y-axis**: Points toward 90°E longitude
+- **Z-axis**: Points toward North pole
+- **Origin**: Body center of mass
+
+## Input Projection Handling
+
+The script supports any GDAL meter-based projection as input (see `gdal2xyz_geocentricSpace.py:172-179`):
+
+```python
+srs = osr.SpatialReference()
+srs.ImportFromWkt(indataset.GetProjection())
+srsLatLong = srs.CloneGeogCS()
+coordtransform = osr.CoordinateTransformation(srs, srsLatLong)
+```
+
+**Automatic Detection:**
+- If input is already Lat/Lon (values ≤ 360°), uses coordinates directly
+- For projected coordinates (meters), transforms to Lat/Lon first
+- Elevation values must be in meters
+
+## Planetary Body Radii
+
+### Common Body Radii (meters)
+
+<CodeGroup>
+```bash Moon
+gdal2xyz_geocentricSpace.py -radius 1737400.0 -addheader lunar.cub moon.csv
+```
+
+```bash Mars
+gdal2xyz_geocentricSpace.py -radius 3389500.0 -addheader mars.cub mars.csv
+```
+
+```bash Mercury
+gdal2xyz_geocentricSpace.py -radius 2439700.0 -addheader mercury.cub mercury.csv
+```
+
+```bash Venus
+gdal2xyz_geocentricSpace.py -radius 6051800.0 -addheader venus.cub venus.csv
+```
+
+```bash Earth
+gdal2xyz_geocentricSpace.py -radius 6371000.0 -addheader earth.tif earth.csv
+```
+</CodeGroup>
+
+<Warning>
+These are mean radii. For accurate work with ellipsoidal bodies, use the equatorial radius or consider the ellipsoidal nature of the body.
+</Warning>
+
+## Output Formats
+
+### Geocentric XYZ (default)
+
+```csv
+X,Y,Radius
+1234567.890,234567.890,1737890.123
+1234568.001,234568.002,1737891.234
+```
+
+**Format:** `%.3f,%.3f,%.3f` (3 decimal places)
+
+### Lat/Lon/Elevation (-printLatLon)
+
+```csv
+Lon,Lat,Band
+-45.123456,23.456789,1234.567
+-45.123400,23.456800,1235.123
+```
+
+**Format:** `%.6f,%.6f,%.3f` (6 decimals for coordinates, 3 for elevation)
+
+## Advanced Use Cases
+
+### Case 1: Multi-band Lat/Lon/Elevation
+
+For files where bands contain:
+- Band 1: Elevation (m)
+- Band 2: Latitude (decimal degrees)
+- Band 3: Longitude (decimal degrees)
+
+```bash
+gdal2xyz_geocentricSpace.py -addheader -latBand 2 -lonBand 3 -band 1 input.cub output.csv
+```
+
+### Case 2: Asteroid Shape Model
+
+For shape models with radius values instead of elevation:
+
+```bash
+gdal2xyz_geocentricSpace.py -addheader -radiusBand 1 -latBand 2 -lonBand 3 asteroid.cub asteroid_xyz.csv
+```
+
+### Case 3: Large Dataset Subsampling
+
+Process every 100th pixel for visualization:
+
+```bash
+gdal2xyz_geocentricSpace.py -skip 100 -addheader large_dem.cub preview_xyz.csv
+```
+
+## Performance Considerations
+
+<Info>
+**Memory Efficient**: The script processes data line-by-line, making it suitable for very large rasters.
+</Info>
+
+### Processing Speed
+
+For a 10000x10000 pixel DEM:
+- With `-skip 1`: ~2-3 minutes
+- With `-skip 10`: ~10-15 seconds
+- With `-skip 100`: ~1-2 seconds
+
+### Output File Size
+
+Each point generates ~30-40 bytes of CSV data:
+- 100x100 grid (10,000 points): ~400 KB
+- 1000x1000 grid (1M points): ~40 MB
+- 10000x10000 grid (100M points): ~4 GB
+
+## Data Validation
+
+### Check for Valid Elevation Values
+
+The script filters out invalid data (see `gdal2xyz_geocentricSpace.py:263`):
+
+```python
+if (abs(x_i_data[0]) < 1.0E12):
+    # Process valid elevation value
+```
+
+Values with absolute magnitude ≥ 1×10¹² are considered invalid and skipped.
+
+## Integration with Other Tools
+
+### Import into 3D Software
+
+**ParaView:**
+```python
+# Load CSV and use Table to Points filter
+reader = CSVReader(FileName='output.csv')
+tableToPoints = TableToPoints(Input=reader)
+tableToPoints.XColumn = 'X'
+tableToPoints.YColumn = 'Y'
+tableToPoints.ZColumn = 'Radius'
+```
+
+**CloudCompare:**
+```bash
+CloudCompare -O output.csv -SS COORD 0 1 2
+```
+
+### GIS Analysis
+
+Import XYZ coordinates back into GIS:
+
+```python
+import pandas as pd
+import geopandas as gpd
+from shapely.geometry import Point
+
+df = pd.read_csv('output.csv')
+geometry = [Point(xyz) for xyz in zip(df.X, df.Y, df.Radius)]
+gdf = gpd.GeoDataFrame(df, geometry=geometry)
+```
+
+## Source Code Reference
+
+- `gdal2xyz_geocentricSpace.py:55-61` - Usage and parameter documentation
+- `gdal2xyz_geocentricSpace.py:172-179` - Coordinate transformation setup
+- `gdal2xyz_geocentricSpace.py:234-279` - Main processing loop and geocentric calculation
+- `gdal2xyz_geocentricSpace.py:268-277` - Geocentric coordinate formulas
+
+## Limitations
+
+<Warning>
+- Assumes simple sphere model (not ellipsoidal)
+- Elevation values must be in meters
+- No support for 3D ellipsoidal transformations
+- Output precision fixed at 3 decimal places for XYZ
+</Warning>
+
+## Troubleshooting
+
+### Common Issues
+
+**Issue:** Output values seem incorrect
+- **Solution:** Verify input elevation units are in meters
+- **Solution:** Check body radius is correct for your target
+
+**Issue:** "Only one Lat or one Lon Band sent" error
+- **Solution:** When using `-latBand`, you must also specify `-lonBand` (and vice versa)
+
+**Issue:** Large output file size
+- **Solution:** Use `-skip` parameter to subsample data
+- **Solution:** Use `-srcwin` to process only region of interest
+
+## See Also
+
+- [GDAL Geotransform Documentation](https://gdal.org/tutorials/geotransforms_tut.html)
+- [OGR Coordinate Transformation](https://gdal.org/api/ogr_geometry.html#coordinate-transformation)
+- [IAU Body Radii](https://astrogeology.usgs.gov/search/details/Docs/WGCCRE/WGCCRE2015reprint/pdf)

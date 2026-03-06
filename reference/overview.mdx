@@ -1,0 +1,106 @@
+---
+title: Scripts Reference Overview
+description: Complete reference guide for GDAL planetary science scripts
+---
+
+# GDAL Scripts Reference
+
+This reference guide provides comprehensive documentation for all GDAL planetary science scripts organized by functionality.
+
+## Script Categories
+
+<CardGroup cols={2}>
+  <Card title="Coordinate Scripts" icon="map-location" href="/reference/coordinate-scripts">
+    Conversion utilities for transforming between pixel, meter, and geographic coordinate systems
+  </Card>
+  
+  <Card title="Conversion Scripts" icon="arrows-rotate" href="/reference/conversion-scripts">
+    Format conversion tools for ISIS3, PLY, gores, geocentric XYZ, and shapefile formats
+  </Card>
+  
+  <Card title="Planetary Scripts" icon="globe" href="/reference/planetary-scripts">
+    Specialized tools for planetary data processing including slope analysis and IAU coordinate systems
+  </Card>
+  
+  <Card title="Utility Scripts" icon="wrench" href="/reference/utility-scripts">
+    General-purpose utilities for metadata, histograms, and image size calculations
+  </Card>
+</CardGroup>
+
+## Coordinate Conversion Scripts
+
+Convert between different coordinate systems:
+
+- **pixel2longlat.py** - Convert pixel coordinates to longitude/latitude
+- **pixel2meters.py** - Convert pixel coordinates to projected meters
+- **longlat2meters.py** - Convert geographic coordinates to projected meters
+- **meters2longlat.py** - Convert projected meters to geographic coordinates
+
+## Format Conversion Scripts
+
+Convert geospatial data between formats:
+
+- **Astropedia_gdal2ISIS3.py** - Create ISIS3 compatible labels from GDAL images
+- **gdal2PLY.py** - Convert DEMs to PLY mesh format for 3D visualization
+- **gdal2gores.py** - Create gore projections for sphere mapping
+- **gdal2xyz_geocentricSpace.py** - Convert DEMs to body-fixed XYZ coordinates
+- **AsterMeta2Shapefile.py** - Convert ASTER metadata files to shapefiles
+
+## Planetary-Specific Scripts
+
+Specialized planetary science tools:
+
+- **gdal_baseline_slope.py** - Calculate slopes using various baseline lengths
+- **create_IAU2000_wkt_v3.py** - Generate IAU planetary coordinate system definitions
+- **isis3_to_pds4_LOLA_pvl.py** - Convert ISIS3 labels to PDS4 format
+- **fix_jp2_v2** - Fix GeoJP2 Equirectangular projection keywords
+
+## General Utility Scripts
+
+Common analysis and utility functions:
+
+- **gdal2metadata.py** - Generate FGDC metadata from GDAL rasters
+- **gdal_hist.py** - Export image histograms in tabular format
+- **slope_histogram_cumulative_graph.py** - Create histogram visualizations
+- **gdalSize.py** - Calculate image size from geographic bounds
+
+## Quick Start
+
+Most scripts follow standard Python command-line patterns:
+
+```bash
+python script_name.py [options] input_file output_file
+```
+
+For detailed usage of any script:
+
+```bash
+python script_name.py --help
+# or
+python script_name.py
+```
+
+## Common Requirements
+
+<Note>
+All scripts require:
+- Python 2.7+ or Python 3.x (version varies by script)
+- GDAL/OGR Python bindings
+- Additional dependencies listed in individual script documentation
+</Note>
+
+## Installation
+
+Install GDAL Python bindings:
+
+```bash
+# Using conda (recommended)
+conda install -c conda-forge gdal
+
+# Using pip
+pip install gdal
+```
+
+## Support
+
+For issues or questions about these scripts, contact the USGS Astrogeology Science Center or visit the repository documentation.

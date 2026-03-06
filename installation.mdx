@@ -1,0 +1,245 @@
+---
+title: Installation
+description: Step-by-step guide to installing GDAL Scripts and dependencies
+---
+
+## Prerequisites
+
+GDAL Scripts requires Python 3.x and the GDAL library with Python bindings. The recommended approach is to use Anaconda, which simplifies GDAL installation and dependency management.
+
+<Note>
+  Python 2 versions of some scripts exist in the repository for legacy support, but Python 3 is strongly recommended for all new installations.
+</Note>
+
+## Installation Steps
+
+<Steps>
+  <Step title="Install Anaconda (Recommended)">
+    If you don't already have Anaconda installed, download it from [anaconda.com](https://www.anaconda.com/download).
+    
+    Anaconda provides the easiest path to getting GDAL installed with all necessary dependencies.
+  </Step>
+  
+  <Step title="Install GDAL">
+    GDAL is the core dependency for all scripts in this collection. Install it using conda:
+    
+    ```bash
+    conda install gdal
+    ```
+    
+    This command installs GDAL along with the Python bindings automatically.
+    
+    <Accordion title="Alternative: Install GDAL without Anaconda">
+      If you prefer not to use Anaconda, you can install GDAL via other methods:
+      
+      **On Ubuntu/Debian:**
+      ```bash
+      sudo apt-get update
+      sudo apt-get install gdal-bin python3-gdal
+      ```
+      
+      **On macOS with Homebrew:**
+      ```bash
+      brew install gdal
+      pip install gdal==$(gdal-config --version)
+      ```
+      
+      **On Windows:**
+      Download OSGeo4W installer from [osgeo.org](https://trac.osgeo.org/osgeo4w/) and select GDAL during installation.
+    </Accordion>
+  </Step>
+  
+  <Step title="Install Additional Python Dependencies">
+    Several scripts require NumPy and SciPy for numerical operations:
+    
+    ```bash
+    conda install numpy scipy
+    ```
+    
+    Or using pip:
+    ```bash
+    pip install numpy scipy
+    ```
+    
+    <Note>
+      Not all scripts require these dependencies. Check individual script README files for specific requirements.
+    </Note>
+  </Step>
+  
+  <Step title="Clone the Repository">
+    Clone the GDAL Scripts repository from GitHub:
+    
+    ```bash
+    git clone https://github.com/thareUSGS/GDAL_scripts.git
+    cd GDAL_scripts
+    ```
+    
+    The scripts are ready to use immediately - no build or install step is required.
+  </Step>
+  
+  <Step title="Test Your Installation">
+    Verify that GDAL is correctly installed by checking the version:
+    
+    ```bash
+    gdalinfo --version
+    ```
+    
+    Test the Python bindings:
+    
+    ```bash
+    python -c "from osgeo import gdal; print(gdal.__version__)"
+    ```
+    
+    Both commands should return version information without errors.
+  </Step>
+</Steps>
+
+## Verifying Individual Scripts
+
+Most scripts provide usage information when run without arguments:
+
+<CodeGroup>
+```bash Coordinate Conversion
+python gdal2Coordinates/pixel2longlat.py
+```
+
+```bash Slope Analysis
+python gdal_baseline_slope/gdal_baseline_slope.py
+```
+
+```bash Data Clipping
+python gdal_clip2range/gdal_clip2range.py
+```
+</CodeGroup>
+
+Each should display usage instructions, confirming the script is ready to use.
+
+## Common Issues and Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="ImportError: No module named 'osgeo'">
+    This error indicates GDAL Python bindings are not installed or not in your Python path.
+    
+    **Solution:**
+    - If using Anaconda: `conda install gdal`
+    - If using pip: `pip install gdal`
+    - Ensure you're using the same Python environment where GDAL was installed
+    
+    Check your Python environment:
+    ```bash
+    which python
+    conda env list  # if using Anaconda
+    ```
+  </Accordion>
+  
+  <Accordion title="ImportError: No module named 'numpy' or 'scipy'">
+    Some scripts require NumPy and SciPy for array operations and filtering.
+    
+    **Solution:**
+    ```bash
+    conda install numpy scipy
+    ```
+    or
+    ```bash
+    pip install numpy scipy
+    ```
+    
+    Scripts requiring these dependencies include:
+    - `gdal_baseline_slope.py` (requires both)
+    - Various terrain analysis tools
+  </Accordion>
+  
+  <Accordion title="GDAL version mismatch errors">
+    If you see errors about GDAL version mismatches between the library and Python bindings:
+    
+    **Solution with Anaconda (recommended):**
+    ```bash
+    conda update gdal
+    ```
+    
+    **Solution with pip:**
+    ```bash
+    pip install gdal==$(gdal-config --version)
+    ```
+    
+    This ensures the Python bindings match your GDAL library version.
+  </Accordion>
+  
+  <Accordion title="Permission denied when running scripts">
+    **Solution:**
+    Make scripts executable:
+    ```bash
+    chmod +x gdal2Coordinates/pixel2longlat.py
+    ./gdal2Coordinates/pixel2longlat.py
+    ```
+    
+    Or always run with Python explicitly:
+    ```bash
+    python gdal2Coordinates/pixel2longlat.py
+    ```
+  </Accordion>
+  
+  <Accordion title="Scripts run slowly or use too much memory">
+    Some scripts, particularly `gdal_baseline_slope.py`, load entire images into memory.
+    
+    **Solutions:**
+    - Work with smaller regions of interest
+    - Use 8-bit output (`-ot Byte` flag) instead of 32-bit when possible
+    - Increase available system memory
+    - Process images in tiles for very large datasets
+    
+    From the gdal_baseline_slope.py README:
+    > "Current implementation loads full image into memory and is fairly slow."
+  </Accordion>
+</AccordionGroup>
+
+## Environment Setup Tips
+
+### Creating a Dedicated Conda Environment
+
+For cleaner dependency management, create a dedicated environment:
+
+```bash
+conda create -n planetary-tools python=3.9 gdal numpy scipy
+conda activate planetary-tools
+```
+
+Activate this environment whenever working with GDAL Scripts:
+
+```bash
+conda activate planetary-tools
+```
+
+### Adding Scripts to Your PATH
+
+To run scripts from anywhere without specifying full paths:
+
+```bash
+export PATH="$PATH:/path/to/GDAL_scripts"
+```
+
+Add this line to your `~/.bashrc` or `~/.zshrc` to make it permanent.
+
+## System Requirements
+
+<CardGroup cols={2}>
+  <Card title="Minimum Requirements" icon="circle-check">
+    - Python 3.6+
+    - GDAL 2.0+
+    - 4GB RAM (for small images)
+    - Any major OS (Linux, macOS, Windows)
+  </Card>
+  
+  <Card title="Recommended" icon="star">
+    - Python 3.9+
+    - GDAL 3.0+
+    - 16GB+ RAM (for large planetary datasets)
+    - SSD storage for faster I/O
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+  Now that you have GDAL Scripts installed, try out some practical examples
+</Card>

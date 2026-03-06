@@ -1,0 +1,339 @@
+---
+title: IAU Planetary Projections
+description: Well-Known Text coordinate reference systems for planetary bodies based on IAU standards
+---
+
+## Overview
+
+The IAU2000 WKT system provides a comprehensive set of coordinate reference systems (CRS) for planetary bodies, similar to EPSG codes for Earth. These projections implement IAU (International Astronomical Union) standards for planetary cartography and can be used directly with GDAL tools.
+
+<Info>
+These projections enable standardized spatial reference systems across planetary science applications, from Mars rovers to outer planet moons.
+</Info>
+
+## Available Versions
+
+### IAU2000
+Based on the 2002 IAU/IAG report (Seidelmann et al.)
+
+### IAU2009  
+Based on the 2011 IAU report (Archinal et al.)
+
+### IAU2015
+Based on the 2018 IAU report (Archinal et al.) - Most current
+
+<Note>
+Each version reflects updated planetary body parameters (radii, rotation elements) from the respective IAU Working Group reports.
+</Note>
+
+## Code Structure
+
+Projection codes follow a systematic pattern:
+
+```
+[NAIF_ID * 100] + [PROJECTION_TYPE]
+```
+
+### Examples
+
+| Code | Body | Projection |
+|------|------|------------|
+| 49900 | Mars | Geographic (ocentric) |
+| 49901 | Mars | Geographic (ographic) |
+| 49910 | Mars | Equirectangular, ocentric, clon=0 |
+| 49918 | Mars | North Polar Stereographic |
+| 30100 | Moon | Geographic (ocentric) |
+| 30110 | Moon | Equirectangular, ocentric, clon=0 |
+
+### Projection Code Suffixes
+
+| Suffix | Projection Type | Notes |
+|--------|-----------------|-------|
+| 00, 01 | Geographic | 00=ocentric, 01=ographic |
+| 10, 11 | Equirectangular, clon=0 | Even=ocentric, odd=ographic |
+| 12, 13 | Equirectangular, clon=180 | Even=ocentric, odd=ographic |
+| 14, 15 | Sinusoidal, clon=0 | |
+| 16, 17 | Sinusoidal, clon=180 | |
+| 18, 19 | North Pole Stereographic | |
+| 20, 21 | South Pole Stereographic | |
+| 22-29 | Mollweide, Robinson | Various central meridians |
+| 60-83 | AUTO projections | Dynamic central meridian |
+
+<Info>
+**Ocentric vs. Ographic:**
+- **Ocentric**: Planetocentric latitudes (angle from center)
+- **Ographic**: Planetographic latitudes (angle from surface normal)
+</Info>
+
+## Using Projections from GitHub
+
+GDAL can read projections directly from the raw GitHub repository using `curl`:
+
+### Reproject with gdalwarp
+
+```bash
+gdalwarp -t_srs \
+  "http://raw.githubusercontent.com/USGS-Astrogeology/GDAL_scripts/master/OGC_IAU2000_WKT_v2/IAU2000_prjs/Moon%202000.prj" \
+  input_moonMap.img output_moonMap_degrees.tif
+```
+
+### Inspect Projection
+
+```bash
+gdalsrsinfo http://raw.githubusercontent.com/USGS-Astrogeology/GDAL_scripts/master/OGC_IAU2000_WKT_v2/IAU2015_prjs/Mars%202015.prj
+```
+
+<Warning>
+**URL Encoding:** Spaces in filenames must be encoded as `%20` in URLs.
+</Warning>
+
+### Use HTTPS
+
+Both `http` and `https` protocols work:
+
+```bash
+gdalwarp -t_srs \
+  "https://raw.githubusercontent.com/USGS-Astrogeology/GDAL_scripts/master/OGC_IAU2000_WKT_v2/IAU2015_prjs/Mars%202015.prj" \
+  input.tif output.tif
+```
+
+## Generating Custom WKT Files
+
+The `create_IAU2000_wkt_v3.py` script generates WKT projection definitions from CSV radius tables.
+
+### Usage
+
+```bash
+python create_IAU2000_wkt_v3.py naifcodes_radii_m_wAsteroids_IAU2015.csv output.wkt
+```
+
+### Parameters
+
+<ParamField path="input.csv" type="string" required>
+  CSV file with NAIF IDs and planetary radii. Available versions:
+  - `naifcodes_radii_m_wAsteroids_IAU2000.csv`
+  - `naifcodes_radii_m_wAsteroids_IAU2009.csv`
+  - `naifcodes_radii_m_wAsteroids_IAU2015.csv`
+</ParamField>
+
+<ParamField path="output.wkt" type="string" optional>
+  Output WKT file. If omitted, writes to stdout.
+</ParamField>
+
+### Input CSV Format
+
+```csv
+Naif_id,Body,IAU2015_Mean,IAU2015_Semimajor,IAU2015_Axisb,IAU2015_Semiminor
+199,Mercury,2439700.00,2439700.00,2439700.00,2439700.00
+299,Venus,6051800.00,6051800.00,6051800.00,6051800.00
+499,Mars,3389500.00,3396190.00,3396190.00,3376200.00
+301,Moon,1737400.00,1737400.00,1737400.00,1737400.00
+401,Phobos,11100.00,13400.00,11200.00,9200.00
+```
+
+### Example Output WKT
+
+```
+49900,GEOGCS["Mars 2015",DATUM["D_Mars_2015",SPHEROID["Mars_2015_IAU",3396190.0,169.8944472236118]],PRIMEM["Reference_Meridian",0],UNIT["Degree",0.0174532925199433],AUTHORITY["IAU2015","49900"]]
+```
+
+## Supported Planetary Bodies
+
+The system includes projections for:
+
+<AccordionGroup>
+  <Accordion title="Terrestrial Planets">
+    - Mercury (199)
+    - Venus (299)
+    - Earth (399)
+    - Mars (499)
+  </Accordion>
+  
+  <Accordion title="Moons">
+    - Moon/Luna (301)
+    - Phobos (401), Deimos (402)
+    - Jovian moons: Io, Europa, Ganymede, Callisto, Amalthea, Thebe, Adrastea, Metis
+    - Saturnian moons: Titan, Rhea, Iapetus, Dione, Tethys, Enceladus, Mimas, Hyperion, Phoebe, Janus, Epimetheus, and more
+    - Uranian moons: Titania, Oberon, Umbriel, Ariel, Miranda
+    - Neptunian moons: Triton, Proteus, Nereid
+    - Plutonian moons: Charon
+  </Accordion>
+  
+  <Accordion title="Asteroids & Comets">
+    - Ceres, Vesta, Pallas, Lutetia, Ida, Gaspra, Eros, Mathilde, Steins
+    - Comets: Halley, Borrelly, Tempel 1, Hartley 2, Wild 2
+  </Accordion>
+  
+  <Accordion title="Gas Giants">
+    - Jupiter (599)
+    - Saturn (699)
+    - Uranus (799)
+    - Neptune (899)
+    - Pluto (999)
+  </Accordion>
+</AccordionGroup>
+
+## Coordinate Reference System Details
+
+### Datum Definition
+
+Each planetary body uses a triaxial ellipsoid (or sphere) defined by:
+
+- **Semimajor axis (a)**: Equatorial radius
+- **Semiminor axis (c)**: Polar radius  
+- **Flattening**: `f = (a - c) / a` or `1/f` for SPHEROID definition
+
+### Triaxial Bodies
+
+For bodies where `a ≠ b ≠ c`, the mean radius is used:
+
+```python
+if theA != theB and theA != theC:
+    theA = theMean  # Use mean radius
+    theC = theMean
+```
+
+## Projection Types
+
+### Static Projections (10-29)
+
+Fixed parameters, specific central meridians:
+
+- **Equirectangular**: Simple cylindrical, lat/lon = x/y
+- **Sinusoidal**: Equal-area, good for global mosaics
+- **Stereographic**: Polar projections (North/South)
+- **Mollweide**: Equal-area elliptical
+- **Robinson**: Compromise projection
+
+### AUTO Projections (60-83)
+
+Dynamic parameters that can be adjusted:
+
+- **Sinusoidal AUTO** (60, 61)
+- **Stereographic AUTO** (62, 63)
+- **Transverse Mercator AUTO** (64, 65)
+- **Orthographic AUTO** (66, 67)
+- **Equidistant Cylindrical AUTO** (68, 69)
+- **Lambert Conformal Conic AUTO** (70, 71)
+- **Lambert Azimuthal Equal Area AUTO** (72, 73)
+- **Mercator AUTO** (74, 75)
+- **Albers AUTO** (76, 77)
+- **Oblique Cylindrical Equal Area AUTO** (78, 79)
+- **Mollweide AUTO** (80, 81)
+- **Robinson AUTO** (82, 83)
+
+<Note>
+AUTO projections allow custom central meridians and standard parallels while maintaining body-specific datum parameters.
+</Note>
+
+## Integration with GDAL
+
+### Assign Projection to Unprojected Data
+
+```bash
+gdal_edit.py -a_srs "IAU2015:49910" mars_image.tif
+```
+
+### Reproject Between Systems
+
+```bash
+gdalwarp -s_srs "IAU2015:49910" -t_srs "IAU2015:49918" \
+  mars_equi.tif mars_polar.tif
+```
+
+### Extract Projection Info
+
+```bash
+gdalsrsinfo -o wkt "IAU2015:49900"
+```
+
+## Script Location
+
+```
+~/workspace/source/OGC_IAU2000_WKT_v2/Source_Python/create_IAU2000_wkt_v3.py
+```
+
+## Pre-generated Files
+
+The repository includes pre-generated WKT files:
+
+```
+~/workspace/source/OGC_IAU2000_WKT_v2/IAU2000_v3.wkt
+~/workspace/source/OGC_IAU2000_WKT_v2/IAU2009_v3.wkt  
+~/workspace/source/OGC_IAU2000_WKT_v2/IAU2015_v3.wkt
+```
+
+And individual `.prj` files for each body:
+
+```
+~/workspace/source/OGC_IAU2000_WKT_v2/IAU2015_prjs/Mars 2015.prj
+~/workspace/source/OGC_IAU2000_WKT_v2/IAU2015_prjs/Moon 2015.prj
+```
+
+## PostGIS Integration
+
+The repository includes experimental PostGIS scripts:
+
+```
+~/workspace/source/OGC_IAU2000_WKT_v2/Source_Python/postGIS_untested/
+```
+
+These generate SQL INSERT statements for loading IAU projections into PostGIS `spatial_ref_sys` table.
+
+<Warning>
+**Untested**: PostGIS scripts are experimental and may require modification for your database version.
+</Warning>
+
+## IAU Standards References
+
+<AccordionGroup>
+  <Accordion title="IAU2000 (Seidelmann et al., 2002)">
+    Seidelmann, P.K., et al. (2002). "Report of the IAU/IAG Working Group on Cartographic Coordinates and Rotational Elements of the Planets and Satellites: 2000," *Celestial Mechanics and Dynamical Astronomy*, v.82, Issue 1, pp. 83-111.
+  </Accordion>
+  
+  <Accordion title="IAU2009 (Archinal et al., 2011)">
+    Archinal, B.A., et al. (2011). "Report of the IAU Working Group on Cartographic Coordinates and Rotational Elements of the Planets and Satellites: 2009," *Celestial Mechanics and Dynamical Astronomy*, v.109, Issue 2, pp. 101-135.
+  </Accordion>
+  
+  <Accordion title="IAU2015 (Archinal et al., 2018)">
+    Archinal, B.A., et al. (2018). "Report of the IAU Working Group on Cartographic Coordinates and Rotational Elements of the Planets and Satellites: 2015," *Celestial Mechanics and Dynamical Astronomy*, 130: 22. [https://doi.org/10.1007/s10569-017-9805-5](https://doi.org/10.1007/s10569-017-9805-5)
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Steps>
+  <Step title="Choose IAU Version">
+    Use **IAU2015** for most current radii and parameters. Use older versions only for compatibility with existing datasets.
+  </Step>
+  
+  <Step title="Select Projection">
+    Choose based on application:
+    - **Global mosaics**: Sinusoidal or Mollweide (equal-area)
+    - **Polar regions**: Stereographic (18-21)
+    - **Regional mapping**: Equirectangular (10-13) or AUTO projections
+    - **Web maps**: Equirectangular at equator
+  </Step>
+  
+  <Step title="Ocentric vs. Ographic">
+    - **Ocentric**: Standard for most planetary work, consistent with SPICE kernels
+    - **Ographic**: Traditional for mapping, matches surface tangent
+  </Step>
+  
+  <Step title="Document Metadata">
+    Always record which IAU version and projection code you use in dataset metadata.
+  </Step>
+</Steps>
+
+## Contact
+
+Trent Hare  
+Astrogeology, U.S. Geological Survey  
+thare@usgs.gov
+
+## Additional Resources
+
+- [USGS Astrogeology GDAL Scripts Repository](https://github.com/USGS-Astrogeology/GDAL_scripts)
+- [IAU Working Group on Cartographic Coordinates](https://astrogeology.usgs.gov/groups/iau-wgccre)
+- [NAIF SPICE System](https://naif.jpl.nasa.gov/)
+- [GDAL Spatial Reference System Tutorial](https://gdal.org/tutorials/osr_api_tut.html)

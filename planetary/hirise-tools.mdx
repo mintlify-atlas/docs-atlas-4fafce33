@@ -1,0 +1,259 @@
+---
+title: HiRISE JP2 Fix Tool
+description: Fix GeoJP2 projection parameters in HiRISE equirectangular images
+---
+
+## Overview
+
+`fix_jp2_v2` is a specialized utility that corrects malformed GeoTIFF projection metadata in HiRISE (High Resolution Imaging Science Experiment) JPEG2000 files. It specifically fixes Equirectangular projections that were incorrectly encoded with `CenterLatGeoKey` instead of `StandardParallel1GeoKey`.
+
+<Info>
+This tool performs in-place binary editing of GeoJP2 headers without decompressing or recompressing the imagery, making it extremely fast.
+</Info>
+
+## The Problem
+
+Historically, some HiRISE GeoJP2 files were generated with incorrect GeoTIFF projection parameters for Equirectangular projections. According to the GeoTIFF specification:
+
+- **Incorrect**: Using `CenterLatGeoKey` (tag 3089)
+- **Correct**: Using `StandardParallel1GeoKey` (tag 3078)
+
+This discrepancy caused projection misinterpretation in GDAL and other GIS software.
+
+<Warning>
+As of version 2 (January 2023), this tool will **not modify** files that already have correct `StandardParallel1GeoKey` tags. The HiRISE team has updated their processing pipeline.
+</Warning>
+
+## Related Issue
+
+[GDAL Ticket #2706](http://trac.osgeo.org/gdal/ticket/2706)
+
+## Installation
+
+### Pre-compiled Windows Executable
+
+A Windows executable (`fix_jp2_v2.exe`) is included in the repository:
+
+```
+~/workspace/source/HiRISE_fix_jp2/fix_jp2_v2.exe
+```
+
+Use from any Windows command-line terminal (cmd, PowerShell).
+
+### Compile from Source
+
+On Linux, macOS, or Windows with GCC:
+
+```bash
+g++ -o fix_jp2_v2 fix_jp2_v2.cpp
+```
+
+<Note>
+No external libraries required - uses only standard C/C++ libraries.
+</Note>
+
+## Usage
+
+```bash
+fix_jp2_v2 HiRISE_targetfile.jp2
+```
+
+### Parameters
+
+<ParamField path="targetfile.jp2" type="string" required>
+  Path to the HiRISE JPEG2000 file to fix. The file is modified in-place.
+</ParamField>
+
+## How It Works
+
+<Steps>
+  <Step title="Locate GeoTIFF Header">
+    Scans the first 10KB of the JP2 file for the embedded TIFF header within the UUID box.
+  </Step>
+  
+  <Step title="Find GeoKey Directory">
+    Locates the `GEOKEYDIRECTORY` tag (34735) containing projection parameters.
+  </Step>
+  
+  <Step title="Check for Existing Fix">
+    Searches for `StandardParallel1GeoKey` (3078). If found, exits without changes.
+  </Step>
+  
+  <Step title="Locate CenterLatGeoKey">
+    Finds the incorrect `CenterLatGeoKey` (3089) tag.
+  </Step>
+  
+  <Step title="Binary Edit">
+    Replaces tag 3089 bytes with 3078 bytes in the file header.
+  </Step>
+  
+  <Step title="Verify and Report">
+    Confirms successful write and reports "Success, file updated."
+  </Step>
+</Steps>
+
+## Examples
+
+### Fix Single File
+
+```bash
+fix_jp2_v2 ESP_012345_1234_RED.JP2
+```
+
+**Output (if needs fixing):**
+```
+Success, file updated.
+```
+
+**Output (if already correct):**
+```
+WARNING: tag (3078 / StdParallel1GeoKey already exists). No change will be made - exiting.
+```
+
+### Batch Processing
+
+**Linux/macOS:**
+```bash
+for file in *.JP2; do
+  echo "Processing $file"
+  fix_jp2_v2 "$file"
+done
+```
+
+**Windows (PowerShell):**
+```powershell
+Get-ChildItem *.JP2 | ForEach-Object {
+  Write-Host "Processing $_"
+  .\fix_jp2_v2.exe $_.FullName
+}
+```
+
+### Verify Fix with GDAL
+
+Before:
+```bash
+gdalinfo ESP_012345_1234_RED.JP2 | grep -A 5 "PROJECTION"
+```
+
+After:
+```bash
+gdalinfo ESP_012345_1234_RED.JP2 | grep -A 5 "PROJECTION"
+```
+
+Look for `standard_parallel_1` parameter in the output.
+
+## Technical Details
+
+### File Format Constraints
+
+<Warning>
+**Little-Endian Only:** This tool only works on little-endian TIFF/GeoTIFF data. Big-endian files are detected but may not be processed correctly.
+</Warning>
+
+- GeoTIFF data must be within the first 10KB of the JP2 file
+- Does not validate that the file actually uses Equirectangular projection
+- Does not modify image data or recompress JPEG2000 stream
+
+### What Gets Modified
+
+Only 2 bytes in the GeoKey directory are changed:
+
+```
+Tag 3089 (0x0C11) → Tag 3078 (0x0C06)
+```
+
+All other projection parameters (standard parallel value, central meridian, etc.) remain unchanged.
+
+### Safety
+
+<Note>
+**Backup Recommended:** While the tool only modifies 2 bytes, it's good practice to keep backups of original files before batch processing.
+</Note>
+
+The tool:
+- Opens files in read-write binary mode (`rb+`)
+- Only writes 2 bytes at the specific tag location
+- Does not modify files that already have correct tags
+- Exits with error if GeoTIFF structure is not found
+
+## Error Messages
+
+| Error | Meaning | Solution |
+|-------|---------|----------|
+| `Failed to open file` | File not found or no read/write permissions | Check path and permissions |
+| `Did not find TIFF header` | Not a GeoJP2 file or GeoTIFF data not in first 10KB | File may not be a GeoJP2 or is corrupted |
+| `Failed to find GEOKEYDIRECTORY tag` | No GeoTIFF projection info | File lacks geospatial metadata |
+| `Unable to find target tag (3089 / CenterLat)` | Already uses correct tag or different projection | No fix needed |
+| `StdParallel1GeoKey already exists` | File already corrected | No action taken (v2 behavior) |
+
+## HiRISE Background
+
+HiRISE (High Resolution Imaging Science Experiment) is a camera aboard NASA's Mars Reconnaissance Orbiter that captures images at resolutions up to 25-30 cm/pixel.
+
+### HiRISE Data Products
+
+- **Observation IDs**: `ESP_######_####` or `PSP_######_####`
+- **Standard Products**: Red-band, color (IRB/RGB), and DTMs
+- **Projections**: Typically Equirectangular for regional maps
+- **Formats**: JPEG2000 for web distribution, ISIS cubes for processing
+
+### When to Use This Tool
+
+Use `fix_jp2_v2` for:
+
+- Legacy HiRISE JP2 files (pre-2023) with projection issues
+- Downloaded JP2 files that GDAL reports incorrect projection
+- Files showing `CenterLatGeoKey` when `StandardParallel1GeoKey` is expected
+
+<Info>
+**Current HiRISE Data:** Files processed after January 2023 by the HiRISE team should already have correct projection tags and won't need fixing.
+</Info>
+
+## Verification Script
+
+Check if a file needs fixing:
+
+```bash
+#!/bin/bash
+# check_hirise_projection.sh
+
+file="$1"
+info=$(gdalinfo "$file" 2>&1)
+
+if echo "$info" | grep -q "standard_parallel_1"; then
+  echo "✓ $file: Projection is correct"
+else
+  echo "✗ $file: May need fixing"
+fi
+```
+
+Usage:
+```bash
+chmod +x check_hirise_projection.sh
+./check_hirise_projection.sh ESP_012345_1234_RED.JP2
+```
+
+## Script Location
+
+```
+~/workspace/source/HiRISE_fix_jp2/fix_jp2_v2.cpp
+~/workspace/source/HiRISE_fix_jp2/fix_jp2_v2.exe (Windows)
+```
+
+## Additional Resources
+
+- [HiRISE Website](https://hirise.lpl.arizona.edu/)
+- [HiRISE Data Portal](https://www.uahirise.org/)
+- [More HiRISE Conversion Tips](https://planetarygis.blogspot.com/2016/07/more-hirise-conversion-tips-until.html)
+- [GDAL GeoJP2 Format](https://gdal.org/drivers/raster/jp2openjpeg.html)
+
+## Credits
+
+**Author:** Frank Warmerdam (warmerdam@pobox.com)  
+**v2 Update:** Trent Hare (thare@usgs.gov) - January 2023
+
+**License:** Public Domain
+
+<Info>
+This tool is provided as-is for the planetary science community. Always validate outputs after processing.
+</Info>
