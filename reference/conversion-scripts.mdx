@@ -425,6 +425,112 @@ complete. 150 files processed
 Script will exit if output shapefile already exists. Remove existing file first.
 </Warning>
 
+---
+
+## ogr_footprintinit2shp (footprintinit2shp.py)
+
+Converts ISIS3 caminfo geometry PVL files to ESRI Shapefiles with WKT geometry.
+
+### Usage
+
+```bash
+python footprintinit2shp.py input.pvl [projection.prj]
+```
+
+### Parameters
+
+<ParamField path="input.pvl" type="string" required>
+  Input PVL file from ISIS3 caminfo command
+</ParamField>
+
+<ParamField path="projection.prj" type="string" optional>
+  WKT projection file to define coordinate system
+</ParamField>
+
+### ISIS3 Workflow
+
+To create a PVL file ready for this tool:
+
+<Steps>
+  <Step title="Initialize SPICE data">
+    ```bash
+    spiceinit from=input.cub
+    ```
+  </Step>
+  <Step title="Generate footprint">
+    ```bash
+    footprintinit from=input.cub
+    ```
+  </Step>
+  <Step title="Extract camera info">
+    ```bash
+    caminfo from=input.cub to=output.pvl uselabel=yes
+    ```
+  </Step>
+  <Step title="Convert to shapefile">
+    ```bash
+    python footprintinit2shp.py output.pvl projection.prj
+    ```
+  </Step>
+</Steps>
+
+### Output Files
+
+Creates multiple files:
+- `.shp` - Shapefile geometry
+- `.shx` - Shapefile index
+- `.dbf` - Attribute database
+- `.prj` - Projection file (if input projection provided)
+- `.csv` - Intermediate CSV with WKT
+- `.vrt` - Virtual format file
+
+### Use Cases
+
+- **Footprint cataloging** - Create spatial index of image coverage
+- **Mission planning** - Visualize existing image coverage
+- **Data discovery** - Find images covering specific regions
+
+<Note>
+Column names from PVL will be truncated to fit shapefile field name limits (10 characters).
+</Note>
+
+---
+
+## ogr_isisminer2shp (isisminer2shp.py)
+
+Converts ISIS3 isisminer CSV results to ESRI Shapefiles.
+
+### Usage
+
+```bash
+python isisminer2shp.py input.csv [projection.prj]
+```
+
+### Parameters
+
+<ParamField path="input.csv" type="string" required>
+  Input CSV file from isisminer command
+</ParamField>
+
+<ParamField path="projection.prj" type="string" optional>
+  WKT projection file for coordinate system definition
+</ParamField>
+
+### Requirements
+
+Input CSV must contain geometry columns. Common isisminer geometry formats:
+- WKT (Well-Known Text) geometry column
+- Separate latitude/longitude columns
+- Footprint polygon coordinates
+
+### Use Cases
+
+- **Analysis results visualization** - Convert isisminer analysis to GIS format
+- **Quality control** - Spatially review data mining results
+- **Integration** - Combine with other GIS datasets
+
+---
+
 ## Requirements
 
 ### Common Dependencies
@@ -437,7 +543,8 @@ All conversion scripts require:
 
 - **gdal2PLY.py**: NumPy
 - **gdal2xyz_geocentricSpace.py**: NumPy/Numeric
-- **isis3_to_pds4**: pvl library
+- **ogr_footprintinit2shp**: pvl library
+- **ogr_isisminer2shp**: pvl library (if using WKT geometry)
 
 ## Installation
 

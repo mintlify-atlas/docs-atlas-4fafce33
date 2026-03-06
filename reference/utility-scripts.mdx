@@ -410,6 +410,111 @@ For compressed size estimates:
 
 ---
 
+## gdal2AsciiLatLonBands.py
+
+Exports raster band data to ASCII/CSV format with optional latitude/longitude or XY coordinate columns.
+
+### Usage
+
+```bash
+python gdal2AsciiLatLonBands.py [-srcwin xoff yoff width height] [-band N] [-addheader] [-printLatLon] [-printYX] srcfile [dstfile]
+```
+
+### Parameters
+
+<ParamField path="srcfile" type="string" required>
+  Input raster file
+</ParamField>
+
+<ParamField path="dstfile" type="string" optional>
+  Output ASCII/CSV file (writes to stdout if not specified)
+</ParamField>
+
+### Options
+
+<ParamField path="-srcwin xoff yoff width height" type="integers">
+  Extract subset window (offsets and dimensions in meters)
+</ParamField>
+
+<ParamField path="-band N" type="integer">
+  Band number to export (can be specified multiple times for multiple bands). Defaults to band 1.
+</ParamField>
+
+<ParamField path="-addheader" type="flag">
+  Add header row with field names
+</ParamField>
+
+<ParamField path="-printLatLon" type="flag">
+  Include Lat/Lon columns (uses GDAL projection to calculate)
+</ParamField>
+
+<ParamField path="-printYX" type="flag">
+  Include Y,X columns in meters
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Basic Band Export
+# Export band 1 to stdout
+python gdal2AsciiLatLonBands.py input.cub
+```
+
+```bash With Coordinates
+# Export with Y,X coordinates to CSV
+python gdal2AsciiLatLonBands.py -addheader -printYX input.cub out.csv
+```
+
+```bash Geographic Coordinates
+# Export with Lat/Lon coordinates
+python gdal2AsciiLatLonBands.py -addheader -printLatLon input.cub out.csv
+```
+
+```bash Multiple Bands
+# Export bands 1, 2, and 3 with header
+python gdal2AsciiLatLonBands.py -addheader -printYX -band 1 -band 2 -band 3 input.cub out.csv
+```
+
+```bash Custom Band Order
+# Export bands 4 and 1 in that order
+python gdal2AsciiLatLonBands.py -addheader -band 4 -band 1 input.cub out.xyz
+```
+</CodeGroup>
+
+### Output Format
+
+**Without coordinates:**
+```
+Band1
+12.3
+15.7
+18.2
+```
+
+**With header and Y,X:**
+```csv
+Y, X, Band1
+1000.0, 2000.0, 12.3
+1000.0, 2010.0, 15.7
+1000.0, 2020.0, 18.2
+```
+
+**With Lat/Lon and multiple bands:**
+```csv
+Lat, Lon, Band1, Band2, Band3
+45.123, -122.456, 12.3, 45.6, 78.9
+45.124, -122.455, 15.7, 48.2, 81.3
+```
+
+### Use Cases
+
+- **Point sampling** - Extract band values at specific locations
+- **Data integration** - Create CSV for import to databases or spreadsheets
+- **Validation** - Compare pixel values across different datasets
+- **Analysis input** - Generate point clouds for statistical analysis
+
+---
+
 ## Common Workflows
 
 ### Complete Slope Analysis Workflow
@@ -486,6 +591,7 @@ python -c "import numpy, pandas, matplotlib; print('OK')"
 | gdal_hist.py | 2.7+ | ✓ | - | - | - | - |
 | slope_histogram_cumulative_graph.py | 3.x | - | - | ✓ | ✓ | - |
 | gdalSize.py | 2.7+ | ✓ | - | - | - | - |
+| gdal2AsciiLatLonBands.py | 2.7+ | ✓ | - | - | - | - |
 
 ## Troubleshooting
 
