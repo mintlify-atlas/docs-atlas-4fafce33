@@ -1,0 +1,87 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "GDAL Scripts",
+  "projectDescription": "Collection of GDAL Python utilities for planetary and astrogeology data processing",
+  "theme": "aspen",
+  "primaryColor": "#8B4513",
+  "lightColor": "#D2691E",
+  "darkColor": "#5C2E0A",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Core Utilities",
+        "pages": [
+          "scripts/coordinate-conversion",
+          "scripts/format-conversion",
+          "scripts/metadata-generation",
+          "scripts/projection-tools"
+        ]
+      },
+      {
+        "group": "Planetary Processing",
+        "pages": [
+          "planetary/baseline-slope",
+          "planetary/pds4-conversion",
+          "planetary/iau-projections",
+          "planetary/hirise-tools"
+        ]
+      },
+      {
+        "group": "Specialized Tools",
+        "pages": [
+          "tools/gores",
+          "tools/ply-export",
+          "tools/xyz-geocentric",
+          "tools/web-mapping"
+        ]
+      },
+      {
+        "group": "Script Reference",
+        "pages": [
+          "reference/overview",
+          "reference/coordinate-scripts",
+          "reference/conversion-scripts",
+          "reference/planetary-scripts",
+          "reference/utility-scripts"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Coordinate system transformations between pixel, meters, and lat/lon",
+    "Planetary body projection definitions using IAU standards",
+    "Specialized slope calculations with variable baselines for rover planning",
+    "PDS4 format conversion from ISIS3 cubes",
+    "DEM to 3D format exports (PLY, OBJ, XYZ)",
+    "Map gore generation for spherical projections",
+    "HiRISE and other planetary instrument data processing",
+    "FGDC metadata generation from GDAL rasters",
+    "Web mapping service integration for planetary data"
+  ],
+  "publicApiSurface": [
+    "gdal2Coordinates (pixel2longlat.py, pixel2meters.py, longlat2meters.py, meters2longlat.py)",
+    "gdal_baseline_slope.py",
+    "gdal2ISIS3 (Astropedia_gdal2ISIS3.py)",
+    "create_IAU2000_wkt_v3.py",
+    "isis3_to_pds4_LOLA_pvl.py",
+    "gdal2metadata.py",
+    "gdal2gores.py",
+    "gdal2PLY.py",
+    "gdal2xyz_geocentricSpace.py",
+    "PlateVertex2Obj.py",
+    "NewCenterLon_Equi.py",
+    "NewStandardPar_Equi.py",
+    "AsterMeta2Shapefile.py",
+    "fix_jp2_v2 (HiRISE projection fix)",
+    "gdal_hist.py",
+    "slope_histogram_cumulative_graph.py"
+  ]
+}
